@@ -1,0 +1,1 @@
+Repeer is a decentralized trust network where users run personal libp2p nodes to track and share their economic experiences with agents (measured as Present Value ROI weighted by transaction volume), enabling subjective trust decisions through transitive friend networks rather than global consensus.
