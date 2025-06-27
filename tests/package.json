@@ -1,0 +1,20 @@
+{
+  "name": "repeer-integration-tests",
+  "version": "0.1.0",
+  "description": "Integration tests for Repeer trust network",
+  "scripts": {
+    "test": "jest",
+    "test:verbose": "jest --verbose",
+    "clean": "rm -rf test_data/"
+  },
+  "dependencies": {
+    "trust-client": "file:../trust-client"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.14",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.2"
+  }
+}

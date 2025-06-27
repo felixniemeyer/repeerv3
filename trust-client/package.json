@@ -1,0 +1,32 @@
+{
+  "name": "trust-client",
+  "version": "0.1.0",
+  "description": "TypeScript client library for Repeer trust network",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.14",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.2"
+  },
+  "keywords": [
+    "trust",
+    "decentralized",
+    "reputation",
+    "p2p",
+    "libp2p"
+  ],
+  "author": "Repeer Team",
+  "license": "MIT"
+}

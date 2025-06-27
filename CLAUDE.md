@@ -11,3 +11,10 @@ Feel free to extensively browse for specifications online.
 Let's go!
 
 If there are unsecurities, accumulate them and present a batch of questions for clarification eventually. 
+
+reread this file when you think you're done and stick to the instructions for another round. 
+
+## parallel stuff
+when investigating, feel free to run processes with &
+remember to close them manually using their pid. 
+

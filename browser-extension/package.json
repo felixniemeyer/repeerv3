@@ -1,0 +1,25 @@
+{
+  "name": "repeer-browser-extension",
+  "version": "0.1.0",
+  "description": "Browser extension for Repeer decentralized trust network",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "vue": "^3.5.13",
+    "trust-client": "file:../trust-client",
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.25",
+    "@types/chrome": "^0.0.281",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vue-tsc": "^2.1.10"
+  }
+}

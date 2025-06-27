@@ -1,0 +1,211 @@
+/* Repeer Trust Score Styles */
+
+.repeer-trust-score {
+  position: relative;
+  display: inline-block;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  z-index: 9999;
+}
+
+.repeer-score-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.repeer-score-content:hover {
+  background: #e2e8f0;
+}
+
+.repeer-score-label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.repeer-score-value {
+  font-weight: 600;
+}
+
+.repeer-positive {
+  color: #059669;
+}
+
+.repeer-negative {
+  color: #dc2626;
+}
+
+.repeer-neutral {
+  color: #6b7280;
+}
+
+.repeer-score-volume {
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.repeer-score-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  min-width: 200px;
+  z-index: 10000;
+  display: none;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.repeer-trust-score:hover .repeer-score-tooltip {
+  display: block;
+}
+
+.repeer-score-tooltip > div {
+  margin-bottom: 4px;
+}
+
+.repeer-score-tooltip > div:last-child {
+  margin-bottom: 0;
+}
+
+.repeer-record-btn {
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  width: 100%;
+}
+
+.repeer-record-btn:hover {
+  background: #059669;
+}
+
+/* Link-specific styles */
+.repeer-trust-link {
+  top: -20px !important;
+  right: -10px !important;
+}
+
+.repeer-trust-link .repeer-score-content {
+  font-size: 10px;
+  padding: 1px 4px;
+}
+
+/* Record Experience Modal */
+.repeer-record-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.repeer-modal-content {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.repeer-modal-content h3 {
+  margin: 0 0 16px 0;
+  color: #1f2937;
+  font-size: 18px;
+}
+
+.repeer-form-group {
+  margin-bottom: 16px;
+}
+
+.repeer-form-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.repeer-form-group input,
+.repeer-form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.repeer-form-group textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.repeer-modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.repeer-modal-actions button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.repeer-modal-actions #repeer-submit {
+  background: #10b981;
+  color: white;
+}
+
+.repeer-modal-actions #repeer-submit:hover {
+  background: #059669;
+}
+
+.repeer-modal-actions #repeer-cancel {
+  background: #6b7280;
+  color: white;
+}
+
+.repeer-modal-actions #repeer-cancel:hover {
+  background: #4b5563;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .repeer-modal-content {
+    width: 95%;
+    padding: 16px;
+  }
+  
+  .repeer-score-tooltip {
+    min-width: 180px;
+    font-size: 11px;
+  }
+}
