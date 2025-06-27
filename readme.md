@@ -165,8 +165,11 @@ On the other hand it would be nice if we could measure trust in a single dimensi
 ### Tech Stack
 - **Nodes:** Rust with libp2p
 - **Client Library:** TypeScript (browser extension, mobile apps)
-- **Integration:** Modular adapter system for websites
-- **Testing:** Multi-node local federation
+- **Integration:** Browser extension with modular adapter system for various websites
+- **Testing:** Multi-node local spin-up
+
+Use vue for the browser extension UI. 
+Maybe use vite or rather crxjs.dev. https://crxjs.dev/vite-plugin
 
 ### Component Architecture
 ```
