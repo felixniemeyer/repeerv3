@@ -3,6 +3,14 @@ name = "trust-node"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "trust-node"
+path = "src/main.rs"
+
+[lib]
+name = "trust_node"
+path = "src/lib.rs"
+
 [dependencies]
 libp2p = { version = "0.54", features = ["tokio", "dns", "tcp", "noise", "yamux", "kad", "identify", "request-response", "macros"] }
 tokio = { version = "1.42", features = ["full"] }

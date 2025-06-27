@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repeer Demo Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .eth-address {
+            font-family: monospace;
+            background: #f0f0f0;
+            padding: 8px;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .product-link {
+            display: inline-block;
+            margin: 5px;
+            padding: 10px;
+            background: #ff6600;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .service-link {
+            display: inline-block;
+            margin: 5px;
+            padding: 10px;
+            background: #0066cc;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #ffe6e6;
+            border: 1px solid #ff9999;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #e6ffe6;
+            border: 1px solid #99ff99;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Repeer Browser Extension Test Page</h1>
+    
+    <p>This page contains various identifiers that the Repeer browser extension should recognize and overlay with trust scores.</p>
+
+    <div class="section">
+        <h2>🔗 Ethereum Addresses</h2>
+        <p>These Ethereum addresses should show trust overlays:</p>
+        
+        <h3>✅ Trusted Protocol</h3>
+        <div class="eth-address">0x1234567890123456789012345678901234567890</div>
+        <div class="success">This address should show a high trust score (good ROI)</div>
+        
+        <h3>⚠️ Risky Protocol</h3>
+        <div class="eth-address">0x9876543210987654321098765432109876543210</div>
+        <div class="warning">This address should show a low trust score (poor ROI)</div>
+        
+        <h3>🚨 Rug Pull Address</h3>
+        <div class="eth-address">0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef</div>
+        <div class="warning">This address should show a very low trust score (major losses)</div>
+    </div>
+
+    <div class="section">
+        <h2>🛒 AliExpress Products</h2>
+        <p>These product links should show trust overlays:</p>
+        
+        <a href="https://www.aliexpress.com/item/1005004389551275.html" class="product-link">
+            TechGear Store - Reliable Seller ✅
+        </a>
+        
+        <a href="https://www.aliexpress.com/item/1005002345678901.html" class="product-link">
+            Quality Electronics - Good Seller ✅
+        </a>
+        
+        <a href="https://www.aliexpress.com/item/1005001234567890.html" class="product-link">
+            Cheap Goods Co - Poor Seller ❌
+        </a>
+        
+        <a href="https://www.aliexpress.com/item/1005005678901234.html" class="product-link">
+            Fake Brand Store - Avoid ❌
+        </a>
+    </div>
+
+    <div class="section">
+        <h2>🌐 Service Provider Domains</h2>
+        <p>These domain links should show trust overlays:</p>
+        
+        <a href="https://upwork.com" class="service-link">Upwork - Freelance Platform ✅</a>
+        <a href="https://fiverr.com" class="service-link">Fiverr - Gig Platform ✅</a>
+        <a href="https://aws.amazon.com" class="service-link">AWS - Cloud Infrastructure ✅</a>
+        <a href="https://digitalocean.com" class="service-link">DigitalOcean - Cloud Hosting ✅</a>
+        <a href="https://sketchy-hosting.com" class="service-link">Sketchy Hosting - Poor Service ❌</a>
+    </div>
+
+    <div class="section">
+        <h2>🎭 Mixed Reputation Cases</h2>
+        <p>These controversial identifiers should show mixed or uncertain trust scores:</p>
+        
+        <div style="margin: 10px 0;">
+            <strong>controversial-trader-001</strong> - Pump and dump trader
+        </div>
+        <div style="margin: 10px 0;">
+            <strong>questionable-nft-project</strong> - NFT project with mixed reviews
+        </div>
+        <div style="margin: 10px 0;">
+            <strong>new-defi-protocol-2024</strong> - Unproven new protocol
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📱 How to Test</h2>
+        <ol>
+            <li><strong>Install Extension:</strong> Load the built extension from <code>browser-extension/dist/</code></li>
+            <li><strong>Start Demo Node:</strong> Run <code>npm run start-node</code> in the demo directory</li>
+            <li><strong>Generate Data:</strong> Run <code>npm run generate</code> in the demo directory</li>
+            <li><strong>Refresh Page:</strong> Reload this page to see trust score overlays</li>
+            <li><strong>Open Extension:</strong> Click the extension icon to manage peers and record experiences</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>🔧 Extension Features</h2>
+        <ul>
+            <li><strong>Trust Score Overlays:</strong> Should appear on Ethereum addresses, AliExpress links, and domain links</li>
+            <li><strong>Search Function:</strong> Use the extension popup to search for any identifier</li>
+            <li><strong>Record Experiences:</strong> Click the "Record Experience" button on overlays</li>
+            <li><strong>Peer Management:</strong> Add trusted peers in the extension settings</li>
+            <li><strong>Settings:</strong> Configure node URL, search depth, and forget rate</li>
+        </ul>
+    </div>
+
+    <script>
+        // Add some console logging to help debug the extension
+        console.log('🎯 Repeer test page loaded');
+        console.log('Extension should inject trust scores on this page');
+        
+        // Log any trust score elements that get added
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === 1 && node.className && node.className.includes('repeer-trust')) {
+                        console.log('✅ Trust score element added:', node);
+                    }
+                });
+            });
+        });
+        
+        observer.observe(document.body, { childList: true, subtree: true });
+    </script>
+</body>
+</html>

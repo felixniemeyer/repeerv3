@@ -9,6 +9,9 @@ interface TrustScore {
 
 class TrustScoreInjector {
   private observedUrls = new Set<string>()
+  private pendingRequests = new Map<string, Promise<any>>()
+  private batchTimeout: number | null = null
+  private readonly batchDelay = 100 // ms
 
   constructor() {
     this.init()
@@ -18,9 +21,9 @@ class TrustScoreInjector {
     // Initialize on page load
     this.scanAndInjectScores()
     
-    // Watch for dynamic content changes
+    // Watch for dynamic content changes with debouncing
     const observer = new MutationObserver(() => {
-      this.scanAndInjectScores()
+      this.debouncedScan()
     })
     
     observer.observe(document.body, {
@@ -34,6 +37,15 @@ class TrustScoreInjector {
         this.showRecordExperienceUI(message.url)
       }
     })
+  }
+
+  private debouncedScan() {
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout)
+    }
+    this.batchTimeout = window.setTimeout(() => {
+      this.scanAndInjectScores()
+    }, this.batchDelay)
   }
 
   private async scanAndInjectScores() {
@@ -64,19 +76,24 @@ class TrustScoreInjector {
   private async injectAliExpressScores() {
     if (!window.location.hostname.includes('aliexpress')) return
     
-    // Look for product IDs in AliExpress URLs
-    const productMatch = window.location.pathname.match(/\/item\/(\d+)/)
-    if (productMatch) {
-      const productId = productMatch[1]
-      const agentId = `aliexpress:${productId}`
+    // Use the AliExpress adapter to parse the current URL
+    const parsed = defaultRegistry.parseUrl(window.location.href)
+    if (parsed && parsed.adapter.name === 'aliexpress') {
+      const agentId = parsed.trustId
       
       if (!this.observedUrls.has(agentId)) {
         this.observedUrls.add(agentId)
         
         // Find a good place to inject the trust score (product title area)
-        const titleElement = document.querySelector('h1, .product-title, [data-spm-anchor-id]')
+        const titleElement = document.querySelector('h1, .product-title, [data-spm-anchor-id], .product-title-text')
         if (titleElement) {
           await this.addTrustScoreOverlay(titleElement, agentId)
+        }
+        
+        // Also try to inject near price elements
+        const priceElement = document.querySelector('.product-price, .price, .notranslate')
+        if (priceElement && priceElement !== titleElement) {
+          await this.addTrustScoreOverlay(priceElement, agentId)
         }
       }
     }
@@ -133,16 +150,34 @@ class TrustScoreInjector {
 
   private async addTrustScoreOverlay(element: Element, agentId: string, type: 'default' | 'link' = 'default') {
     try {
-      const response = await chrome.runtime.sendMessage({
+      // Check if we already have a pending request for this agentId
+      if (this.pendingRequests.has(agentId)) {
+        const response = await this.pendingRequests.get(agentId)
+        if (response?.success) {
+          this.createTrustScoreElement(element, agentId, response.score, type)
+        }
+        return
+      }
+
+      // Create new request and cache it
+      const requestPromise = chrome.runtime.sendMessage({
         type: 'GET_TRUST_SCORE',
         agentId: agentId,
       })
+      
+      this.pendingRequests.set(agentId, requestPromise)
+      
+      const response = await requestPromise
+      
+      // Clean up the pending request
+      this.pendingRequests.delete(agentId)
 
       if (response.success) {
         this.createTrustScoreElement(element, agentId, response.score, type)
       }
     } catch (error) {
       console.error('Failed to get trust score:', error)
+      this.pendingRequests.delete(agentId)
     }
   }
 

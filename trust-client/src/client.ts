@@ -67,6 +67,10 @@ export class TrustClient {
     await this.client.post(`/peers/${peerId}/quality`, request);
   }
 
+  async removePeer(peerId: string): Promise<void> {
+    await this.client.delete(`/peers/${peerId}`);
+  }
+
   // Convenience methods for common use cases
   
   async recordPositiveExperience(

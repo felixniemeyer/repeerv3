@@ -2,16 +2,70 @@ use crate::storage::Storage;
 use crate::types::{TrustExperience, TrustScore};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tracing::{debug, warn};
+
+#[derive(Clone)]
+struct CacheEntry {
+    score: TrustScore,
+    calculated_at: DateTime<Utc>,
+    point_in_time: DateTime<Utc>,
+    forget_rate: f64,
+}
 
 pub struct QueryEngine<S: Storage> {
     storage: Arc<S>,
+    cache: Arc<RwLock<HashMap<String, CacheEntry>>>,
+    cache_ttl_seconds: i64,
 }
 
 impl<S: Storage> QueryEngine<S> {
     pub fn new(storage: Arc<S>) -> Self {
-        Self { storage }
+        Self { 
+            storage,
+            cache: Arc::new(RwLock::new(HashMap::new())),
+            cache_ttl_seconds: 300, // 5 minutes
+        }
+    }
+    
+    pub fn new_with_cache_ttl(storage: Arc<S>, cache_ttl_seconds: i64) -> Self {
+        Self { 
+            storage,
+            cache: Arc::new(RwLock::new(HashMap::new())),
+            cache_ttl_seconds,
+        }
+    }
+    
+    fn get_cache_key(&self, agent_id: &str, point_in_time: DateTime<Utc>, forget_rate: f64) -> String {
+        format!("{}:{}:{:.3}", agent_id, point_in_time.timestamp(), forget_rate)
+    }
+    
+    fn is_cache_valid(&self, entry: &CacheEntry, now: DateTime<Utc>) -> bool {
+        (now - entry.calculated_at).num_seconds() < self.cache_ttl_seconds
+    }
+    
+    pub fn clear_cache(&self) {
+        if let Ok(mut cache) = self.cache.write() {
+            cache.clear();
+        }
+    }
+    
+    pub fn cleanup_expired_cache(&self) {
+        let now = Utc::now();
+        if let Ok(mut cache) = self.cache.write() {
+            cache.retain(|_, entry| self.is_cache_valid(entry, now));
+        }
+    }
+    
+    pub fn get_cache_stats(&self) -> (usize, usize) {
+        if let Ok(cache) = self.cache.read() {
+            let now = Utc::now();
+            let total = cache.len();
+            let valid = cache.values().filter(|entry| self.is_cache_valid(entry, now)).count();
+            (total, valid)
+        } else {
+            (0, 0)
+        }
     }
 
     pub async fn calculate_trust_score(
@@ -20,10 +74,36 @@ impl<S: Storage> QueryEngine<S> {
         point_in_time: DateTime<Utc>,
         forget_rate: f64,
     ) -> anyhow::Result<TrustScore> {
+        let now = Utc::now();
+        let cache_key = self.get_cache_key(agent_id, point_in_time, forget_rate);
+        
+        // Check cache first
+        if let Ok(cache) = self.cache.read() {
+            if let Some(entry) = cache.get(&cache_key) {
+                if self.is_cache_valid(entry, now) {
+                    debug!("Cache hit for agent {}", agent_id);
+                    return Ok(entry.score.clone());
+                }
+            }
+        }
+        
+        debug!("Cache miss for agent {}, calculating...", agent_id);
         let experiences = self.storage.get_experiences(agent_id).await?;
         
         if experiences.is_empty() {
-            return Ok(TrustScore::default());
+            let default_score = TrustScore::default();
+            
+            // Cache the default score too
+            if let Ok(mut cache) = self.cache.write() {
+                cache.insert(cache_key, CacheEntry {
+                    score: default_score.clone(),
+                    calculated_at: now,
+                    point_in_time,
+                    forget_rate,
+                });
+            }
+            
+            return Ok(default_score);
         }
 
         let (weighted_roi, total_weight) = self.calculate_weighted_average(
@@ -32,11 +112,23 @@ impl<S: Storage> QueryEngine<S> {
             forget_rate,
         );
 
-        Ok(TrustScore {
+        let score = TrustScore {
             expected_pv_roi: weighted_roi,
             total_volume: total_weight,
             data_points: experiences.len(),
-        })
+        };
+        
+        // Cache the result
+        if let Ok(mut cache) = self.cache.write() {
+            cache.insert(cache_key, CacheEntry {
+                score: score.clone(),
+                calculated_at: now,
+                point_in_time,
+                forget_rate,
+            });
+        }
+
+        Ok(score)
     }
 
     pub async fn calculate_all_trust_scores(

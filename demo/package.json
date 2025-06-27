@@ -1,0 +1,19 @@
+{
+  "name": "repeer-demo",
+  "version": "0.1.0",
+  "description": "Demo data generator for Repeer trust network",
+  "type": "module",
+  "scripts": {
+    "generate": "ts-node --esm generate_demo_data.ts",
+    "start-node": "cd ../trust-node && cargo run -- --user demo --api-port 8080 --p2p-port 7000",
+    "demo": "npm run start-node & sleep 5 && npm run generate"
+  },
+  "dependencies": {
+    "trust-client": "file:../trust-client"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  }
+}

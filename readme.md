@@ -1,5 +1,32 @@
 # Repeer - Decentralized Subjective Trust Network
 
+[![Build Status](https://github.com/repeer/repeer/workflows/CI/badge.svg)](https://github.com/repeer/repeer/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> A decentralized trust network that calculates subjective trust scores based on personal experiences and transitive trust relationships.
+
+## 🚀 Quick Start
+
+1. **Clone and build:**
+   ```bash
+   git clone https://github.com/repeer/repeer.git
+   cd repeer/v3
+   ```
+
+2. **Start a demo node:**
+   ```bash
+   cd demo && npm run start-node
+   ```
+
+3. **Generate demo data:**
+   ```bash
+   npm run generate
+   ```
+
+4. **Install browser extension:**
+   - Load `browser-extension/dist/` as unpacked extension in Chrome/Firefox
+   - Visit the [test page](demo/test-page.html) to see trust scores
+
 ## Project Overview
 
 Repeer is a decentralized system for tracking and sharing subjective trust experiences, mirroring how humans naturally build trust networks. Users document their experiences with agents (sellers, services, addresses) and access friends' experiences to calculate trust scores for future interactions.
@@ -71,12 +98,12 @@ Own experiences are taken as they are (factor 1) so a factor of > 1 might make s
 **Future consideration:** Automatic recommender quality adjustments based on prediction accuracy. 
 
 ```
-        Me (Query depth=3)
-       /  \
+              Me (Query depth=3)
+                /           \
     Friend A (depth=2)    Friend B (depth=2)  
-   /   \                 /   \
-Friend C  Friend D   Friend E  Friend F
-(depth=1) (depth=1)  (depth=1) (depth=1)
+      /     \                   /     \
+Friend C  Friend D         Friend E  Friend F
+(depth=1) (depth=1)        (depth=1) (depth=1)
 ```
 
 **Query Algorithm:**
@@ -448,4 +475,90 @@ assert(score.total_confidence > 10); // High confidence from Alice's large inves
 
 This architecture provides a mathematically sound, practically deployable foundation for decentralized trust networks that preserves user sovereignty while enabling real-world adoption.
 
-This is cyber anarchy. You are responsible yourself. This reputation system is an alternative to nanny-dispute resolution systems. You build trust. There is no alternative anyways - if you trust big systems, it appears you have more security but in reality you die with them. 
+This is cyber anarchy. You are responsible yourself. This reputation system is an alternative to nanny-dispute resolution systems. You build trust. There is no alternative anyways - if you trust big systems, it appears you have more security but in reality you die with them.
+
+## 🏗️ Implementation Status
+
+### ✅ Phase 1: Core Infrastructure (Complete)
+- **Rust Trust Node**: libp2p-based P2P networking with trust protocols
+- **SQLite Storage**: Local experience storage with volume-weighted calculations  
+- **Query Engine**: Tree traversal with caching for transitive trust
+- **TypeScript Client**: HTTP API client with adapter system
+- **Multi-node Testing**: Integration tests with realistic scenarios
+
+### ✅ Phase 2: Browser Integration (Complete)
+- **Vue Browser Extension**: Modern UI with popup and content script injection
+- **Platform Adapters**: Ethereum, AliExpress, domain support
+- **Trust Score Overlays**: Automatic injection on supported websites
+- **Peer Management**: Add/remove peers, update recommender quality
+- **Settings Management**: Configure node URL, search depth, forget rate
+
+### ✅ Phase 3: Polish & Demo (Complete)
+- **Comprehensive Testing**: Unit tests, integration tests, performance benchmarks
+- **Demo Data Generator**: Realistic trust scenarios across multiple platforms
+- **Performance Optimization**: Query caching, request deduplication, debounced scanning
+- **Documentation**: Complete adapter development guide and API reference
+
+## 🛠️ Development
+
+### Prerequisites
+- **Rust 1.70+** (for trust-node)
+- **Node.js 18+** (for client and extension)
+- **Chrome/Firefox** (for extension testing)
+
+### Build All Components
+```bash
+# Build Rust node
+cd trust-node && cargo build
+
+# Build TypeScript client
+cd trust-client && npm install && npm run build
+
+# Build browser extension  
+cd browser-extension && npm install && npm run build
+```
+
+### Run Tests
+```bash
+# Rust node tests
+cd trust-node && cargo test
+
+# TypeScript client tests
+cd trust-client && npm test
+
+# Browser extension tests (requires vitest dependencies)
+cd browser-extension && npm test
+```
+
+### Development Workflow
+1. **Start demo node**: `cd demo && npm run start-node`
+2. **Generate test data**: `npm run generate`
+3. **Load extension**: Load `browser-extension/dist/` in Chrome developer mode
+4. **Test on demo page**: Open `demo/test-page.html`
+
+## 📚 Documentation
+
+- **[Architecture Guide](docs/README.md)** - System design and concepts
+- **[Adapter Development](docs/adapter-development.md)** - Create platform integrations
+- **[API Reference](docs/api-reference.md)** - Complete API documentation
+- **[Browser Extension Guide](docs/browser-extension.md)** - Extension usage and features
+
+## 🤝 Contributing
+
+We welcome contributions! Areas needing help:
+
+1. **New Platform Adapters** - Instagram, TikTok, YouTube, Reddit, etc.
+2. **Mobile Support** - React Native app or mobile extension
+3. **UI/UX Improvements** - Better trust score visualization
+4. **Network Effects** - Peer discovery and recommendation algorithms
+5. **Performance** - Database optimization, caching strategies
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+**Built with**: Rust, TypeScript, Vue.js, libp2p, SQLite, Vite, CRXJS 

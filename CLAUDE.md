@@ -12,7 +12,10 @@ Let's go!
 
 If there are unsecurities, accumulate them and present a batch of questions for clarification eventually. 
 
-reread this file when you think you're done and stick to the instructions for another round. 
+When you come to an end with your process: 
+- reread this file  
+- analyze the codebase
+- continue work
 
 ## parallel stuff
 when investigating, feel free to run processes with &

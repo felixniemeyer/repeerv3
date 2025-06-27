@@ -102,18 +102,22 @@
             <div class="peer-info">
               <span class="peer-name">{{ peer.name }}</span>
               <span class="peer-id">{{ formatPeerId(peer.peer_id) }}</span>
+              <span class="peer-added">Added: {{ formatDate(peer.added_at) }}</span>
             </div>
-            <div class="peer-quality">
-              <span class="quality-label">Quality:</span>
-              <input 
-                v-model="peer.recommender_quality" 
-                type="number" 
-                min="-1" 
-                max="1" 
-                step="0.1"
-                @change="updatePeerQuality(peer)"
-                class="quality-input"
-              >
+            <div class="peer-controls">
+              <div class="peer-quality">
+                <span class="quality-label">Quality:</span>
+                <input 
+                  v-model="peer.recommender_quality" 
+                  type="number" 
+                  min="-1" 
+                  max="1" 
+                  step="0.1"
+                  @change="updatePeerQuality(peer)"
+                  class="quality-input"
+                >
+              </div>
+              <button @click="removePeer(peer.peer_id)" class="remove-btn" title="Remove peer">×</button>
             </div>
           </div>
         </div>
@@ -273,6 +277,10 @@ const formatRoi = (roi: number) => {
   return `${percentage}%`
 }
 
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString()
+}
+
 const formatVolume = (volume: number) => {
   if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`
   if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`
@@ -338,6 +346,17 @@ const updatePeerQuality = async (peer: Peer) => {
     await client.updatePeerQuality(peer.peer_id, { quality: peer.recommender_quality })
   } catch (error) {
     console.error('Error updating peer quality:', error)
+  }
+}
+
+const removePeer = async (peerId: string) => {
+  if (!confirm('Are you sure you want to remove this peer?')) return
+  
+  try {
+    await client.removePeer(peerId)
+    peers.value = peers.value.filter(p => p.peer_id !== peerId)
+  } catch (error) {
+    console.error('Error removing peer:', error)
   }
 }
 
@@ -623,11 +642,40 @@ const testConnection = async () => {
   font-family: monospace;
 }
 
+.peer-added {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.peer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
 .peer-quality {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+}
+
+.remove-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.remove-btn:hover {
+  background: #dc2626;
 }
 
 .quality-input {
