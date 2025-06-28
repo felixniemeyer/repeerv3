@@ -160,6 +160,31 @@
           >
         </div>
 
+        <div class="setting">
+          <h3 class="setting-title">Adapter Permissions</h3>
+          <p class="setting-description">
+            Control which adapters can automatically create trust experiences on your behalf.
+          </p>
+          
+          <div v-if="permissions.length === 0" class="empty-state">
+            No adapter permissions configured yet.
+          </div>
+          
+          <div v-for="permission in permissions" :key="`${permission.adapterId}-${permission.platform}`" class="permission-item">
+            <div class="permission-info">
+              <strong>{{ permission.adapterId }}</strong> on {{ permission.platform }}
+              <div class="permission-status">
+                <span v-if="permission.alwaysAllow" class="status-badge allowed">Always Allow</span>
+                <span v-else class="status-badge denied">Prompt</span>
+                <span class="permission-date">Added {{ formatDate(permission.createdAt) }}</span>
+              </div>
+            </div>
+            <button @click="revokePermission(permission.adapterId, permission.platform)" class="revoke-btn">
+              Revoke
+            </button>
+          </div>
+        </div>
+
         <button @click="testConnection" class="test-btn">Test Connection</button>
         <div v-if="connectionTest" class="connection-result" :class="connectionTest.success ? 'success' : 'error'">
           {{ connectionTest.message }}
@@ -203,6 +228,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { TrustClient, defaultRegistry } from 'trust-client'
+import { PermissionManager, type AdapterPermission } from '../permissions'
 
 interface TrustScoreResult {
   agentId: string
@@ -249,6 +275,7 @@ const experienceForm = ref({
 })
 
 const connectionTest = ref<{ success: boolean, message: string } | null>(null)
+const permissions = ref<AdapterPermission[]>([])
 
 const tabs = [
   { id: 'scores', label: 'Trust Scores' },
@@ -261,6 +288,7 @@ let client: TrustClient
 onMounted(async () => {
   await loadSettings()
   await loadPeers()
+  await loadPermissions()
   await checkConnection()
 })
 
@@ -407,6 +435,23 @@ const loadPeers = async () => {
     peers.value = await client.getPeers()
   } catch (error) {
     console.error('Error loading peers:', error)
+  }
+}
+
+const loadPermissions = async () => {
+  try {
+    permissions.value = await PermissionManager.getPermissions()
+  } catch (error) {
+    console.error('Error loading permissions:', error)
+  }
+}
+
+const revokePermission = async (adapterId: string, platform: string) => {
+  try {
+    await PermissionManager.revokePermission(adapterId, platform)
+    await loadPermissions() // Reload permissions
+  } catch (error) {
+    console.error('Error revoking permission:', error)
   }
 }
 
@@ -779,5 +824,84 @@ const testConnection = async () => {
   border: none;
   border-radius: 6px;
   cursor: pointer;
+}
+
+/* Permissions UI */
+.setting-title {
+  margin: 16px 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.setting-description {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.permission-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.permission-info {
+  flex: 1;
+}
+
+.permission-status {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.allowed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.denied {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.permission-date {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.revoke-btn {
+  padding: 6px 12px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.revoke-btn:hover {
+  background: #dc2626;
+}
+
+.empty-state {
+  padding: 20px;
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
 }
 </style>

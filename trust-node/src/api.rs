@@ -8,9 +8,9 @@ use axum::{
     Router,
 };
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::net::SocketAddr;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tower_http::cors::CorsLayer;
 use tracing::info;
 use uuid::Uuid;
@@ -18,6 +18,23 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct ApiState {
     pub command_tx: mpsc::Sender<NodeCommand>,
+}
+
+/// Helper function to execute a node command and handle the standard error cases
+async fn execute_command<T, F>(state: &ApiState, command_builder: F) -> Result<T, StatusCode>
+where
+    F: FnOnce(oneshot::Sender<Result<T, anyhow::Error>>) -> NodeCommand,
+{
+    let (tx, rx) = oneshot::channel();
+    state
+        .command_tx
+        .send(command_builder(tx))
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    rx.await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 pub async fn run_api_server(port: u16, command_tx: mpsc::Sender<NodeCommand>) -> anyhow::Result<()> {
@@ -62,6 +79,7 @@ pub struct AddExperienceRequest {
     pub timeframe_days: f64,
     pub discount_rate: Option<f64>,
     pub notes: Option<String>,
+    pub data: Option<serde_json::Value>,
 }
 
 async fn add_experience(
@@ -79,21 +97,13 @@ async fn add_experience(
         invested_volume: req.investment,
         timestamp: Utc::now(),
         notes: req.notes,
+        data: req.data,
     };
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::AddExperience {
-            experience: experience.clone(),
-            response: tx,
-        })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    rx.await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    execute_command(&state, |response| NodeCommand::AddExperience {
+        experience: experience.clone(),
+        response,
+    }).await?;
 
     Ok(Json(experience))
 }
@@ -102,17 +112,10 @@ async fn get_experiences(
     State(state): State<ApiState>,
     Path(agent_id): Path<String>,
 ) -> Result<Json<Vec<TrustExperience>>, StatusCode> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::GetExperiences { agent_id, response: tx })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let experiences = rx
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let experiences = execute_command(&state, |response| NodeCommand::GetExperiences { 
+        agent_id, 
+        response 
+    }).await?;
 
     Ok(Json(experiences))
 }
@@ -135,17 +138,10 @@ async fn query_trust(
         forget_rate: Some(params.forget_rate.unwrap_or(0.0)),
     };
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::QueryTrust { query, response: tx })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let response = rx
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let response = execute_command(&state, |response| NodeCommand::QueryTrust { 
+        query, 
+        response 
+    }).await?;
 
     response
         .scores
@@ -159,33 +155,18 @@ async fn query_trust_batch(
     State(state): State<ApiState>,
     Json(query): Json<TrustQuery>,
 ) -> Result<Json<TrustResponse>, StatusCode> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::QueryTrust { query, response: tx })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let response = rx
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let response = execute_command(&state, |response| NodeCommand::QueryTrust { 
+        query, 
+        response 
+    }).await?;
 
     Ok(Json(response))
 }
 
 async fn get_peers(State(state): State<ApiState>) -> Result<Json<Vec<Peer>>, StatusCode> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::GetPeers { response: tx })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let peers = rx
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let peers = execute_command(&state, |response| NodeCommand::GetPeers { 
+        response 
+    }).await?;
 
     Ok(Json(peers))
 }
@@ -208,19 +189,10 @@ async fn add_peer(
         added_at: Utc::now(),
     };
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::AddPeer {
-            peer: peer.clone(),
-            response: tx,
-        })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    rx.await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    execute_command(&state, |response| NodeCommand::AddPeer {
+        peer: peer.clone(),
+        response,
+    }).await?;
 
     Ok(Json(peer))
 }
@@ -235,20 +207,11 @@ async fn update_peer_quality(
     Path(peer_id): Path<String>,
     Json(req): Json<UpdateQualityRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::UpdatePeerQuality {
-            peer_id,
-            quality: req.quality,
-            response: tx,
-        })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    rx.await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    execute_command(&state, |response| NodeCommand::UpdatePeerQuality {
+        peer_id,
+        quality: req.quality,
+        response,
+    }).await?;
 
     Ok(StatusCode::OK)
 }
@@ -257,50 +220,26 @@ async fn delete_peer(
     State(state): State<ApiState>,
     Path(peer_id): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::RemovePeer {
-            peer_id,
-            response: tx,
-        })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    rx.await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    execute_command(&state, |response| NodeCommand::RemovePeer {
+        peer_id,
+        response,
+    }).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn get_connected_peers(State(state): State<ApiState>) -> Result<Json<Vec<String>>, StatusCode> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::GetConnectedPeers { response: tx })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let connected_peers = rx
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let connected_peers = execute_command(&state, |response| NodeCommand::GetConnectedPeers { 
+        response 
+    }).await?;
 
     Ok(Json(connected_peers))
 }
 
 async fn trigger_peer_discovery(State(state): State<ApiState>) -> Result<StatusCode, StatusCode> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::TriggerPeerDiscovery { response: tx })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    rx.await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    execute_command(&state, |response| NodeCommand::TriggerPeerDiscovery { 
+        response 
+    }).await?;
 
     Ok(StatusCode::OK)
 }
@@ -309,19 +248,10 @@ async fn delete_experience(
     State(state): State<ApiState>,
     Path(experience_id): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::RemoveExperience {
-            experience_id,
-            response: tx,
-        })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    rx.await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    execute_command(&state, |response| NodeCommand::RemoveExperience {
+        experience_id,
+        response,
+    }).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -333,17 +263,9 @@ pub struct ImportRequest {
 }
 
 async fn export_trust_data(State(state): State<ApiState>) -> Result<Json<TrustDataExport>, StatusCode> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::ExportTrustData { response: tx })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let export_data = rx
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let export_data = execute_command(&state, |response| NodeCommand::ExportTrustData { 
+        response 
+    }).await?;
 
     Ok(Json(export_data))
 }
@@ -352,20 +274,11 @@ async fn import_trust_data(
     State(state): State<ApiState>,
     Json(req): Json<ImportRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state
-        .command_tx
-        .send(NodeCommand::ImportTrustData {
-            data: req.data,
-            overwrite: req.overwrite.unwrap_or(false),
-            response: tx,
-        })
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    rx.await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    execute_command(&state, |response| NodeCommand::ImportTrustData {
+        data: req.data,
+        overwrite: req.overwrite.unwrap_or(false),
+        response,
+    }).await?;
 
     Ok(StatusCode::OK)
 }

@@ -46,6 +46,7 @@ impl SqliteStorage {
                 invested_volume REAL NOT NULL,
                 timestamp TEXT NOT NULL,
                 notes TEXT,
+                data TEXT, -- JSON data from adapters
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
             "#
@@ -114,10 +115,13 @@ impl SqliteStorage {
 #[async_trait]
 impl Storage for SqliteStorage {
     async fn add_experience(&self, experience: TrustExperience) -> Result<()> {
+        let data_json = experience.data.as_ref()
+            .map(|d| serde_json::to_string(d).unwrap_or_else(|_| "{}".to_string()));
+            
         sqlx::query(
             r#"
-            INSERT INTO experiences (id, agent_id, pv_roi, invested_volume, timestamp, notes)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            INSERT INTO experiences (id, agent_id, pv_roi, invested_volume, timestamp, notes, data)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
             "#
         )
         .bind(experience.id.to_string())
@@ -126,6 +130,7 @@ impl Storage for SqliteStorage {
         .bind(experience.invested_volume)
         .bind(experience.timestamp.to_rfc3339())
         .bind(&experience.notes)
+        .bind(&data_json)
         .execute(&self.pool)
         .await?;
         
@@ -141,11 +146,12 @@ impl Storage for SqliteStorage {
             invested_volume: f64,
             timestamp: String,
             notes: Option<String>,
+            data: Option<String>,
         }
         
         let rows = sqlx::query_as::<_, ExperienceRow>(
             r#"
-            SELECT id, agent_id, pv_roi, invested_volume, timestamp, notes
+            SELECT id, agent_id, pv_roi, invested_volume, timestamp, notes, data
             FROM experiences
             WHERE agent_id = ?1
             ORDER BY timestamp DESC
@@ -164,6 +170,7 @@ impl Storage for SqliteStorage {
                 invested_volume: row.invested_volume,
                 timestamp: DateTime::parse_from_rfc3339(&row.timestamp).unwrap().with_timezone(&Utc),
                 notes: row.notes,
+                data: row.data.and_then(|d| serde_json::from_str(&d).ok()),
             })
             .collect();
         
@@ -179,11 +186,12 @@ impl Storage for SqliteStorage {
             invested_volume: f64,
             timestamp: String,
             notes: Option<String>,
+            data: Option<String>,
         }
         
         let rows = sqlx::query_as::<_, ExperienceRow>(
             r#"
-            SELECT id, agent_id, pv_roi, invested_volume, timestamp, notes
+            SELECT id, agent_id, pv_roi, invested_volume, timestamp, notes, data
             FROM experiences
             ORDER BY timestamp DESC
             "#
@@ -200,6 +208,7 @@ impl Storage for SqliteStorage {
                 invested_volume: row.invested_volume,
                 timestamp: DateTime::parse_from_rfc3339(&row.timestamp).unwrap().with_timezone(&Utc),
                 notes: row.notes,
+                data: row.data.and_then(|d| serde_json::from_str(&d).ok()),
             })
             .collect();
         
@@ -373,6 +382,7 @@ mod tests {
             invested_volume: 1000.0,
             timestamp: Utc::now(),
             notes: Some("Test experience".to_string()),
+            data: None,
         };
         
         storage.add_experience(experience.clone()).await?;

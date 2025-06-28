@@ -2,7 +2,7 @@ use crate::api::run_api_server;
 use crate::protocols::{TrustCodec, TrustProtocol, merge_responses, TrustResponseInternal};
 use crate::query_engine::QueryEngine;
 use crate::storage::Storage;
-use crate::types::{CachedTrustScore, Peer, TrustDataExport, TrustExperience, TrustQuery, TrustResponse, TrustScore};
+use crate::types::{Peer, TrustDataExport, TrustExperience, TrustQuery, TrustResponse, TrustScore};
 use anyhow::Result;
 use chrono::Utc;
 use futures::StreamExt;
@@ -16,7 +16,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, Duration as TokioDuration};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 #[derive(NetworkBehaviour)]
 pub struct TrustBehaviour {

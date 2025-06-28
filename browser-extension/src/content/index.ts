@@ -1,5 +1,6 @@
 // Content script for Repeer trust score injection
 import { defaultRegistry } from 'trust-client'
+import { PermissionManager, type PermissionRequest } from '../permissions'
 
 interface TrustScore {
   expected_pv_roi: number
@@ -32,9 +33,12 @@ class TrustScoreInjector {
     })
 
     // Listen for messages from background script
-    chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message.type === 'SHOW_RECORD_UI') {
         this.showRecordExperienceUI(message.url)
+      } else if (message.type === 'REQUEST_ADAPTER_PERMISSION') {
+        this.handleAdapterPermissionRequest(message.data).then(sendResponse)
+        return true // Keep the message channel open for async response
       }
     })
   }
@@ -310,6 +314,27 @@ class TrustScoreInjector {
         modal.remove()
       }
     })
+  }
+
+  /**
+   * Handle adapter permission requests for automatic experience creation
+   * This ensures users consent before adapters can create experiences on their behalf
+   */
+  private async handleAdapterPermissionRequest(request: PermissionRequest): Promise<boolean> {
+    try {
+      // Check if we already have permission
+      const hasPermission = await PermissionManager.hasPermission(request.adapterId, request.platform)
+      if (hasPermission) {
+        return true
+      }
+
+      // Request permission from user with dialog
+      const granted = await PermissionManager.requestPermission(request)
+      return granted
+    } catch (error) {
+      console.error('Error handling adapter permission request:', error)
+      return false
+    }
   }
 }
 

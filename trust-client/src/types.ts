@@ -5,6 +5,7 @@ export interface TrustExperience {
   invested_volume: number;
   timestamp: string;
   notes?: string;
+  data?: any; // Adapter-specific data (e.g., tx links, purchase info)
 }
 
 export interface TrustScore {
@@ -39,6 +40,7 @@ export interface AddExperienceRequest {
   timeframe_days: number;
   discount_rate?: number;
   notes?: string;
+  data?: any;
 }
 
 export interface AddPeerRequest {

@@ -10,6 +10,7 @@ pub struct TrustExperience {
     pub invested_volume: f64,
     pub timestamp: DateTime<Utc>,
     pub notes: Option<String>,
+    pub data: Option<serde_json::Value>, // Adapter-specific data (e.g., tx links, purchase info)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,12 +42,19 @@ pub struct TrustResponse {
     pub timestamp: DateTime<Utc>,
 }
 
+/// Cached trust score from a peer's recommendation
+/// 
+/// The key distinction between fields:
+/// - `agent_id`: The entity being evaluated (e.g., "ethereum:0x123", "aliexpress:product456")
+/// - `from_peer`: The peer who provided this trust score (e.g., PeerId of the recommending node)
+/// 
+/// Example: Alice (from_peer) recommends trust score for Bob's Ethereum address (agent_id)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CachedTrustScore {
-    pub agent_id: String,
-    pub score: TrustScore,
-    pub from_peer: String,
-    pub cached_at: DateTime<Utc>,
+    pub agent_id: String,      // The entity being evaluated
+    pub score: TrustScore,     // The trust score for this agent
+    pub from_peer: String,     // The peer who provided this recommendation
+    pub cached_at: DateTime<Utc>, // When this score was cached
 }
 
 impl TrustExperience {

@@ -3,7 +3,7 @@ use crate::types::{TrustExperience, TrustScore};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tracing::{debug, warn};
+use tracing::debug;
 
 #[derive(Clone)]
 struct CacheEntry {
@@ -295,6 +295,7 @@ mod tests {
             invested_volume: 1000.0,
             timestamp: now,
             notes: None,
+            data: None,
         }).await?;
 
         storage.add_experience(TrustExperience {
@@ -304,6 +305,7 @@ mod tests {
             invested_volume: 500.0,
             timestamp: now,
             notes: None,
+            data: None,
         }).await?;
 
         let score = engine.calculate_trust_score("test_agent", now, 0.0).await?;

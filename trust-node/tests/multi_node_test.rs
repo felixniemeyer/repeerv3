@@ -22,6 +22,7 @@ async fn test_storage_operations() {
         invested_volume: 100.0,
         timestamp: Utc::now(),
         notes: Some("Test experience".to_string()),
+        data: None,
     };
 
     storage.add_experience(experience.clone()).await.unwrap();
@@ -51,6 +52,7 @@ async fn test_volume_weighted_calculations() {
             invested_volume: 50.0,
             timestamp,
             notes: None,
+            data: None,
         },
         TrustExperience {
             id: Uuid::new_v4(),
@@ -59,6 +61,7 @@ async fn test_volume_weighted_calculations() {
             invested_volume: 150.0,
             timestamp,
             notes: None,
+            data: None,
         },
         TrustExperience {
             id: Uuid::new_v4(),
@@ -67,6 +70,7 @@ async fn test_volume_weighted_calculations() {
             invested_volume: 100.0,
             timestamp,
             notes: None,
+            data: None,
         },
     ];
 

@@ -26,3 +26,9 @@ When you come to an end with your process:
 when investigating, feel free to run processes with &
 remember to close them manually using their pid. 
 
+# read ./todo file
+act on todos, when done, prepend D(<comment>): 
+e.g.
+- run tests
+becomes
+- D(all passing): run tests

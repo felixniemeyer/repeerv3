@@ -1,4 +1,14 @@
 import { IDAdapter } from '../types';
+/**
+ * Domain adapter for the trust client.
+ * 
+ * This adapter is used to parse and validate domain IDs.
+ * 
+ * trust in a domain expresses, how much the time spent on that domain was worth it
+ * 
+ * @example
+ * 
+ */
 
 export const domainAdapter: IDAdapter = {
   name: 'domain',
