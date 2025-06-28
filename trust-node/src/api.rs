@@ -1,10 +1,10 @@
 use crate::node::NodeCommand;
-use crate::types::{Peer, TrustExperience, TrustQuery, TrustResponse, TrustScore};
+use crate::types::{Peer, TrustDataExport, TrustExperience, TrustQuery, TrustResponse, TrustScore};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use chrono::Utc;
@@ -27,11 +27,17 @@ pub async fn run_api_server(port: u16, command_tx: mpsc::Sender<NodeCommand>) ->
         .route("/health", get(health))
         .route("/experiences", post(add_experience))
         .route("/experiences/:agent_id", get(get_experiences))
+        .route("/experiences/:experience_id", delete(delete_experience))
         .route("/trust/:agent_id", get(query_trust))
         .route("/trust/batch", post(query_trust_batch))
         .route("/peers", get(get_peers))
         .route("/peers", post(add_peer))
+        .route("/peers/:peer_id", delete(delete_peer))
         .route("/peers/:peer_id/quality", post(update_peer_quality))
+        .route("/peers/connected", get(get_connected_peers))
+        .route("/peers/discover", post(trigger_peer_discovery))
+        .route("/export", get(export_trust_data))
+        .route("/import", post(import_trust_data))
         .with_state(state)
         .layer(CorsLayer::permissive());
 
@@ -235,6 +241,123 @@ async fn update_peer_quality(
         .send(NodeCommand::UpdatePeerQuality {
             peer_id,
             quality: req.quality,
+            response: tx,
+        })
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    rx.await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::OK)
+}
+
+async fn delete_peer(
+    State(state): State<ApiState>,
+    Path(peer_id): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    state
+        .command_tx
+        .send(NodeCommand::RemovePeer {
+            peer_id,
+            response: tx,
+        })
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    rx.await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn get_connected_peers(State(state): State<ApiState>) -> Result<Json<Vec<String>>, StatusCode> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    state
+        .command_tx
+        .send(NodeCommand::GetConnectedPeers { response: tx })
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let connected_peers = rx
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(connected_peers))
+}
+
+async fn trigger_peer_discovery(State(state): State<ApiState>) -> Result<StatusCode, StatusCode> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    state
+        .command_tx
+        .send(NodeCommand::TriggerPeerDiscovery { response: tx })
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    rx.await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::OK)
+}
+
+async fn delete_experience(
+    State(state): State<ApiState>,
+    Path(experience_id): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    state
+        .command_tx
+        .send(NodeCommand::RemoveExperience {
+            experience_id,
+            response: tx,
+        })
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    rx.await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+pub struct ImportRequest {
+    pub data: TrustDataExport,
+    pub overwrite: Option<bool>,
+}
+
+async fn export_trust_data(State(state): State<ApiState>) -> Result<Json<TrustDataExport>, StatusCode> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    state
+        .command_tx
+        .send(NodeCommand::ExportTrustData { response: tx })
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let export_data = rx
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(export_data))
+}
+
+async fn import_trust_data(
+    State(state): State<ApiState>,
+    Json(req): Json<ImportRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    state
+        .command_tx
+        .send(NodeCommand::ImportTrustData {
+            data: req.data,
+            overwrite: req.overwrite.unwrap_or(false),
             response: tx,
         })
         .await

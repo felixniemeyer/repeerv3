@@ -11,10 +11,12 @@ pub trait Storage: Send + Sync {
     async fn add_experience(&self, experience: TrustExperience) -> Result<()>;
     async fn get_experiences(&self, agent_id: &str) -> Result<Vec<TrustExperience>>;
     async fn get_all_experiences(&self) -> Result<Vec<TrustExperience>>;
+    async fn remove_experience(&self, experience_id: &str) -> Result<()>;
     
     async fn add_peer(&self, peer: Peer) -> Result<()>;
     async fn get_peers(&self) -> Result<Vec<Peer>>;
     async fn update_peer_quality(&self, peer_id: &str, quality: f64) -> Result<()>;
+    async fn remove_peer(&self, peer_id: &str) -> Result<()>;
     
     async fn cache_trust_score(&self, cached: CachedTrustScore) -> Result<()>;
     async fn get_cached_scores(&self, agent_id: &str) -> Result<Vec<CachedTrustScore>>;
@@ -26,7 +28,12 @@ pub struct SqliteStorage {
 
 impl SqliteStorage {
     pub async fn new(path: &Path) -> Result<Self> {
-        let db_url = format!("sqlite:{}", path.display());
+        // Ensure parent directory exists
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        
+        let db_url = format!("sqlite://{}?mode=rwc", path.display());
         let pool = SqlitePool::connect(&db_url).await?;
         
         // Create tables
@@ -262,6 +269,32 @@ impl Storage for SqliteStorage {
         Ok(())
     }
 
+    async fn remove_peer(&self, peer_id: &str) -> Result<()> {
+        sqlx::query(
+            r#"
+            DELETE FROM peers WHERE peer_id = ?1
+            "#
+        )
+        .bind(peer_id)
+        .execute(&self.pool)
+        .await?;
+        
+        Ok(())
+    }
+
+    async fn remove_experience(&self, experience_id: &str) -> Result<()> {
+        sqlx::query(
+            r#"
+            DELETE FROM experiences WHERE id = ?1
+            "#
+        )
+        .bind(experience_id)
+        .execute(&self.pool)
+        .await?;
+        
+        Ok(())
+    }
+
     async fn cache_trust_score(&self, cached: CachedTrustScore) -> Result<()> {
         sqlx::query(
             r#"
@@ -329,7 +362,9 @@ mod tests {
     #[tokio::test]
     async fn test_storage_operations() -> Result<()> {
         let dir = tempdir()?;
-        let storage = SqliteStorage::new(&dir.path().join("test.db")).await?;
+        let db_path = dir.path().join("test.db");
+        println!("Test database path: {:?}", db_path);
+        let storage = SqliteStorage::new(&db_path).await?;
         
         let experience = TrustExperience {
             id: Uuid::new_v4(),

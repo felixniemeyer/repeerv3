@@ -51,6 +51,18 @@ export interface UpdateQualityRequest {
   quality: number;
 }
 
+export interface TrustDataExport {
+  version: string;
+  exported_at: string;
+  experiences: TrustExperience[];
+  peers: Peer[];
+}
+
+export interface ImportRequest {
+  data: TrustDataExport;
+  overwrite?: boolean;
+}
+
 export interface TrustQueryParams {
   max_depth?: number;
   forget_rate?: number;

@@ -14,7 +14,7 @@ CREATE INDEX idx_experiences_timestamp ON experiences(timestamp);
 CREATE TABLE IF NOT EXISTS peers (
     peer_id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    recommender_quality REAL NOT NULL DEFAULT 0.5,
+    recommender_quality REAL NOT NULL DEFAULT 0,
     added_at TEXT NOT NULL,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );

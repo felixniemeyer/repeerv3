@@ -66,3 +66,22 @@ impl Default for TrustScore {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrustDataExport {
+    pub version: String,
+    pub exported_at: DateTime<Utc>,
+    pub experiences: Vec<TrustExperience>,
+    pub peers: Vec<Peer>,
+}
+
+impl TrustDataExport {
+    pub fn new(experiences: Vec<TrustExperience>, peers: Vec<Peer>) -> Self {
+        Self {
+            version: "1.0".to_string(),
+            exported_at: Utc::now(),
+            experiences,
+            peers,
+        }
+    }
+}

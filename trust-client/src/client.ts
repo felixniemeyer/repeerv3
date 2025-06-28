@@ -9,6 +9,8 @@ import {
   AddPeerRequest,
   UpdateQualityRequest,
   TrustQueryParams,
+  TrustDataExport,
+  ImportRequest,
 } from './types';
 
 export class TrustClient {
@@ -43,6 +45,10 @@ export class TrustClient {
     return response.data;
   }
 
+  async removeExperience(experienceId: string): Promise<void> {
+    await this.client.delete(`/experiences/${experienceId}`);
+  }
+
   async queryTrust(agentId: string, params?: TrustQueryParams): Promise<TrustScore> {
     const response = await this.client.get<TrustScore>(`/trust/${agentId}`, { params });
     return response.data;
@@ -71,6 +77,40 @@ export class TrustClient {
     await this.client.delete(`/peers/${peerId}`);
   }
 
+  async getConnectedPeers(): Promise<string[]> {
+    const response = await this.client.get<string[]>('/peers/connected');
+    return response.data;
+  }
+
+  async triggerPeerDiscovery(): Promise<void> {
+    await this.client.post('/peers/discover');
+  }
+
+  async exportTrustData(): Promise<TrustDataExport> {
+    const response = await this.client.get<TrustDataExport>('/export');
+    return response.data;
+  }
+
+  async importTrustData(data: TrustDataExport, overwrite: boolean = false): Promise<void> {
+    await this.client.post('/import', { data, overwrite });
+  }
+
+  async exportToFile(filename?: string): Promise<string> {
+    const data = await this.exportTrustData();
+    const jsonString = JSON.stringify(data, null, 2);
+    const exportFilename = filename || `trust-data-${new Date().toISOString().split('T')[0]}.json`;
+    
+    // In a browser environment, you might want to trigger a download
+    // For now, just return the JSON string and filename
+    console.log(`Trust data exported to ${exportFilename}`);
+    return jsonString;
+  }
+
+  async importFromJson(jsonString: string, overwrite: boolean = false): Promise<void> {
+    const data = JSON.parse(jsonString) as TrustDataExport;
+    await this.importTrustData(data, overwrite);
+  }
+
   // Convenience methods for common use cases
   
   async recordPositiveExperience(
@@ -84,22 +124,6 @@ export class TrustClient {
       agent_id: agentId,
       investment,
       return_value: returnValue,
-      timeframe_days: timeframeDays,
-      notes,
-    });
-  }
-
-  async recordNegativeExperience(
-    agentId: string,
-    investment: number,
-    loss: number,
-    timeframeDays: number = 1,
-    notes?: string
-  ): Promise<TrustExperience> {
-    return this.addExperience({
-      agent_id: agentId,
-      investment,
-      return_value: investment - loss,
       timeframe_days: timeframeDays,
       notes,
     });
