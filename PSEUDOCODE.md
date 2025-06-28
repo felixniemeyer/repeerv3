@@ -127,19 +127,14 @@ CLASS TrustNode:
 ENUM MessageType:
     TrustQueryRequest
     TrustQueryResponse
-    ExperienceSync
-    PeerDiscovery
 
 FUNCTION handle_trust_query_request(query, from_peer):
     scores = query_engine.calculate_trust_scores(query.agent_ids, query.max_depth)
     response = TrustQueryResponse(scores, current_timestamp)
     send_to_peer(from_peer, response)
 
-FUNCTION handle_experience_sync(experiences[], from_peer):
-    // Validate and store experiences from trusted peers
-    FOR EACH experience IN experiences:
-        IF validate_experience(experience) AND trust_peer(from_peer):
-            storage.cache_external_experience(experience, from_peer)
+// Note: No experience syncing! Each node only stores its own experiences.
+// We cache query RESULTS (trust scores) from peers, not raw experiences.
 ```
 
 ## API Layer
