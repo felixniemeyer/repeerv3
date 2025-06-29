@@ -12,11 +12,11 @@ export class AliExpressDomain implements IDDomain {
   parseId(text: string): string | null {
     // Extract AliExpress product ID from various URL formats
     const patterns = [
-      /item\/(\d+)\.html/,                    // Standard product URL
-      /productId=(\d+)/,                      // Query parameter
-      /\/product\/(\d+)/,                     // Alternative URL format
-      /aliexpress\.com\/[\w-]+\/(\d+)\.html/, // With category path
-      /\/(\d{10,})(?:\.html)?$/,              // Direct ID at end of path
+      /\/item\/(\d+)\.html/,                    // Standard product URL
+      /productId=(\d+)/,                        // Query parameter
+      /\/product\/(\d+)/,                       // Alternative URL format
+      /\/[\w-]+\/(\d+)\.html/,                  // With category path
+      /\/(\d{10,16})(?:\.html)?$/,              // Direct ID at end of path (10-16 digits)
     ];
     
     for (const pattern of patterns) {
@@ -31,8 +31,8 @@ export class AliExpressDomain implements IDDomain {
   }
   
   validateId(id: string): boolean {
-    // AliExpress product IDs are typically 10-15 digit numbers
-    return /^\d{10,15}$/.test(id);
+    // AliExpress product IDs are typically 10-16 digit numbers
+    return /^\d{10,16}$/.test(id);
   }
   
   displayName(id: string): string {
