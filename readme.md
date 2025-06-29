@@ -368,6 +368,17 @@ impl TrustInformation {
 - Large investments naturally dominate the average
 - Simple, intuitive, economically sound
 
+### Trust Score Visual Encoding
+
+Trust scores are visually represented using a color gradient that combines ROI and volume information:
+
+**Color Formula:**
+Linear interpolation from RGB(255, x, 255) for ROI = 0 to RGB(x, 255, 255) for ROI = 2, where x = 255 / (1 + 0.001 * volume).
+
+The visual encoding provides at-a-glance understanding:
+- **Color indicates performance**: Magenta = loss, Purple = break-even, Cyan = profit
+- **Green/Red intensity indicates confidence**: Lower values = higher volume = more reliable data
+
 ## Testing
 Let's take a test driven development approach. 
 

@@ -32,3 +32,7 @@ e.g.
 - run tests
 becomes
 - D(all passing): run tests
+
+# style guidlines
+in css files or in .vue files in the style section, avoid pixel units. Use rem or similar. 
+Always use a dark theme. 
