@@ -15,14 +15,20 @@
   "dependencies": {
     "vue": "^3.5.13",
     "trust-client": "file:../trust-client",
-    "axios": "^1.7.7"
+    "axios": "^1.7.7",
+    "@repeer/adapter-interface": "file:../packages/adapter-interface",
+    "@repeer/ethereum-domain": "file:../packages/id-domains/ethereum-domain",
+    "@repeer/aliexpress-domain": "file:../packages/id-domains/aliexpress-domain", 
+    "@repeer/domain-domain": "file:../packages/id-domains/domain-domain",
+    "@repeer/etherscan-adapter": "file:../packages/website-adapters/etherscan-adapter",
+    "@repeer/aliexpress-adapter": "file:../packages/website-adapters/aliexpress-adapter"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.25",
     "@types/chrome": "^0.0.281",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/test-utils": "^2.4.6",
-    "happy-dom": "^15.12.2",
+    "happy-dom": "^15.0.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "vitest": "^2.1.8",

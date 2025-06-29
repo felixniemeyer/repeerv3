@@ -15,6 +15,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
   
+  if (message.type === 'GET_TRUST_SCORES_BATCH') {
+    // Handle batch trust score requests from modern adapter system
+    handleBatchTrustScoreRequest(message.agentIds)
+      .then(scores => sendResponse({ success: true, scores }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    
+    return true; // Keep message channel open for async response
+  }
+  
   if (message.type === 'RECORD_EXPERIENCE') {
     // Handle experience recording
     handleRecordExperience(message.experience)
@@ -39,6 +48,35 @@ async function handleTrustScoreRequest(agentId: string) {
     return await response.json();
   } catch (error) {
     console.error('Failed to fetch trust score:', error);
+    throw error;
+  }
+}
+
+async function handleBatchTrustScoreRequest(agentIds: string[]) {
+  try {
+    // Get the API endpoint from storage
+    const result = await chrome.storage.sync.get(['apiEndpoint']);
+    const apiEndpoint = result.apiEndpoint || 'http://localhost:8080';
+    
+    // Create batch request
+    const scores: Record<string, any> = {};
+    
+    // Fetch each score (in a real implementation, this could be optimized with a batch API)
+    const promises = agentIds.map(async (agentId) => {
+      try {
+        const response = await fetch(`${apiEndpoint}/trust/${agentId}`);
+        if (response.ok) {
+          scores[agentId] = await response.json();
+        }
+      } catch (error) {
+        console.error(`Failed to fetch trust score for ${agentId}:`, error);
+      }
+    });
+    
+    await Promise.all(promises);
+    return scores;
+  } catch (error) {
+    console.error('Failed to fetch batch trust scores:', error);
     throw error;
   }
 }

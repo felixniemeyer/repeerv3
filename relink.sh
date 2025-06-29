@@ -45,26 +45,23 @@ npm run build
 npm link
 cd ../../..
 
-echo "📦 Linking dependencies to generic domain adapter..."
-cd packages/website-adapters/generic-domain-adapter
-npm link @repeer/adapter-interface @repeer/domain-domain
-npm run build
-npm link
-cd ../../..
+# Note: generic-domain-adapter removed - functionality moved to specific adapters
 
 # Link all adapters to trust-client if it exists
 if [ -d "trust-client" ]; then
     echo "📦 Linking adapters to trust-client..."
     cd trust-client
-    npm link @repeer/adapter-interface @repeer/ethereum-domain @repeer/aliexpress-domain @repeer/domain-domain @repeer/etherscan-adapter @repeer/aliexpress-adapter @repeer/generic-domain-adapter
+    npm link @repeer/adapter-interface @repeer/ethereum-domain @repeer/aliexpress-domain @repeer/domain-domain @repeer/etherscan-adapter @repeer/aliexpress-adapter
     cd ..
 fi
 
 # Link all adapters to browser-extension if it exists
 if [ -d "browser-extension" ]; then
-    echo "📦 Linking adapters to browser-extension..."
+    echo "📦 Installing and linking adapters to browser-extension..."
     cd browser-extension
-    npm link @repeer/adapter-interface @repeer/ethereum-domain @repeer/aliexpress-domain @repeer/domain-domain @repeer/etherscan-adapter @repeer/aliexpress-adapter @repeer/generic-domain-adapter
+    npm install
+    npm link @repeer/adapter-interface @repeer/ethereum-domain @repeer/aliexpress-domain @repeer/domain-domain @repeer/etherscan-adapter @repeer/aliexpress-adapter
+    npm run build || echo "⚠️ Browser extension build failed, but continuing..."
     cd ..
 fi
 
