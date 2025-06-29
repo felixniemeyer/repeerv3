@@ -84,7 +84,6 @@ pub struct TrustNode<S: Storage> {
 }
 
 struct PendingRequest {
-    query: TrustQuery,
     responses: Vec<TrustResponseInternal>,
     waiting_for: HashSet<PeerId>,
     response_channel: oneshot::Sender<Result<TrustResponse>>,
@@ -309,6 +308,19 @@ impl<S: Storage + 'static> TrustNode<S> {
     }
 
     async fn handle_trust_response(&mut self, request_id: request_response::OutboundRequestId, peer: PeerId, response: TrustResponse) -> Result<()> {
+        // Cache the received trust scores from this peer
+        for (agent_id, score) in &response.scores {
+            let cached = crate::types::CachedTrustScore {
+                agent_id: agent_id.clone(),
+                score: score.clone(),
+                from_peer: peer.to_string(),
+                cached_at: Utc::now(),
+            };
+            if let Err(e) = self.storage.cache_trust_score(cached).await {
+                debug!("Failed to cache trust score from {}: {}", peer, e);
+            }
+        }
+
         if let Some(mut pending) = self.pending_requests.remove(&request_id) {
             pending.responses.push(TrustResponseInternal {
                 response,
@@ -441,29 +453,51 @@ impl<S: Storage + 'static> TrustNode<S> {
             let mut waiting_for = HashSet::new();
             let mut request_ids = Vec::new();
 
+            // First, check for cached scores from peers
+            for agent_id in &query.agent_ids {
+                if let Ok(cached_scores) = self.storage.get_cached_scores(agent_id).await {
+                    for cached in cached_scores {
+                        // Find the peer's recommender quality
+                        if let Some(peer) = self.peers.values().find(|p| p.peer_id == cached.from_peer) {
+                            // Apply age decay to cached scores
+                            let age_seconds = (Utc::now() - cached.cached_at).num_seconds() as f64;
+                            let age_factor = 1.0 / (1.0 + age_seconds / 86400.0); // Decay over days
+                            
+                            all_scores
+                                .entry(agent_id.clone())
+                                .or_default()
+                                .push((cached.from_peer, cached.score, peer.recommender_quality * age_factor));
+                        }
+                    }
+                }
+            }
+
+            // Then try to get fresh scores from connected peers
             for peer in self.peers.values() {
                 if let Ok(peer_id) = peer.peer_id.parse::<PeerId>() {
-                    let peer_query = TrustQuery {
-                        agent_ids: query.agent_ids.clone(),
-                        max_depth: max_depth.saturating_sub(1),
-                        point_in_time: Some(point_in_time),
-                        forget_rate: Some(forget_rate),
-                    };
+                    // Only query if peer is connected
+                    if self.swarm.is_connected(&peer_id) {
+                        let peer_query = TrustQuery {
+                            agent_ids: query.agent_ids.clone(),
+                            max_depth: max_depth.saturating_sub(1),
+                            point_in_time: Some(point_in_time),
+                            forget_rate: Some(forget_rate),
+                        };
 
-                    let request_id = self.swarm
-                        .behaviour_mut()
-                        .request_response
-                        .send_request(&peer_id, peer_query);
+                        let request_id = self.swarm
+                            .behaviour_mut()
+                            .request_response
+                            .send_request(&peer_id, peer_query);
 
-                    waiting_for.insert(peer_id);
-                    request_ids.push(request_id);
+                        waiting_for.insert(peer_id);
+                        request_ids.push(request_id);
+                    }
                 }
             }
 
             if !waiting_for.is_empty() {
                 // Store pending request
                 let pending = PendingRequest {
-                    query: query.clone(),
                     responses: Vec::new(),
                     waiting_for,
                     response_channel: response,

@@ -1,6 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import { TrustClient } from '../trust-client/src';
-import { setTimeout } from 'timers/promises';
+import { setTimeout as delay } from 'timers/promises';
 
 interface NodeConfig {
   name: string;
@@ -24,6 +24,7 @@ describe('Multi-node Integration Tests', () => {
       
       const process = spawn('cargo', [
         'run',
+        '--release',
         '--',
         '--user', node.name,
         '--api-port', node.apiPort.toString(),
@@ -31,14 +32,27 @@ describe('Multi-node Integration Tests', () => {
         '--data-dir', `./test_data/${node.name}`,
       ], {
         cwd: '../trust-node',
-        stdio: 'pipe',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      
+      // Log output for debugging
+      process.stdout?.on('data', (data) => {
+        console.log(`${node.name} stdout:`, data.toString().trim());
+      });
+      
+      process.stderr?.on('data', (data) => {
+        console.log(`${node.name} stderr:`, data.toString().trim());
+      });
+      
+      process.on('exit', (code) => {
+        console.log(`${node.name} exited with code:`, code);
       });
       
       node.process = process;
       node.client = new TrustClient(`http://localhost:${node.apiPort}`);
       
       // Wait a bit for the node to start
-      await setTimeout(2000);
+      await delay(2000);
       
       // Check if node is healthy
       let retries = 5;
@@ -51,7 +65,7 @@ describe('Multi-node Integration Tests', () => {
           }
         } catch (error) {
           console.log(`Waiting for node ${node.name} to start... (${retries} retries left)`);
-          await setTimeout(1000);
+          await delay(1000);
           retries--;
         }
       }
@@ -70,11 +84,11 @@ describe('Multi-node Integration Tests', () => {
         node.process.kill('SIGTERM');
         
         // Wait for graceful shutdown
-        await new Promise((resolve) => {
-          node.process!.on('exit', resolve);
-          setTimeout(() => {
+        await new Promise<void>((resolve) => {
+          node.process!.on('exit', () => resolve());
+          const timer = global.setTimeout(() => {
             node.process!.kill('SIGKILL');
-            resolve(null);
+            resolve();
           }, 5000);
         });
       }

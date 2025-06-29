@@ -1,4 +1,5 @@
-# 28.06. 
+# 29.06. 
+
 # 28.06.
 - When adding the browser-extension/dist to firefox, we get this error:  "There was an error during the temporary add-on installation. Error details: background.service_worker is currently disabled. Add background.scripts."
 - add a data field to experiences table that can be used by adapters to store any information (e.g. link to purchase, link to transaction, etc.) in json format

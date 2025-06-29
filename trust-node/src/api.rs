@@ -44,7 +44,7 @@ pub async fn run_api_server(port: u16, command_tx: mpsc::Sender<NodeCommand>) ->
         .route("/health", get(health))
         .route("/experiences", post(add_experience))
         .route("/experiences/:agent_id", get(get_experiences))
-        .route("/experiences/:experience_id", delete(delete_experience))
+        .route("/experience/:experience_id", delete(delete_experience))
         .route("/trust/:agent_id", get(query_trust))
         .route("/trust/batch", post(query_trust_batch))
         .route("/peers", get(get_peers))

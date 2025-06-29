@@ -9,8 +9,6 @@ use tracing::debug;
 struct CacheEntry {
     score: TrustScore,
     calculated_at: DateTime<Utc>,
-    point_in_time: DateTime<Utc>,
-    forget_rate: f64,
 }
 
 pub struct QueryEngine<S: Storage> {
@@ -98,8 +96,6 @@ impl<S: Storage> QueryEngine<S> {
                 cache.insert(cache_key, CacheEntry {
                     score: default_score.clone(),
                     calculated_at: now,
-                    point_in_time,
-                    forget_rate,
                 });
             }
             
@@ -123,8 +119,6 @@ impl<S: Storage> QueryEngine<S> {
             cache.insert(cache_key, CacheEntry {
                 score: score.clone(),
                 calculated_at: now,
-                point_in_time,
-                forget_rate,
             });
         }
 
