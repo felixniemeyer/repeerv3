@@ -236,47 +236,75 @@ reminder: reputation score has two components:
   - PV-ROI 
   - volume
 
-### ID Adapters
-An adapter integrates repeer into existing websites or platforms. 
+### Adapter System
 
-Each platform needs an adapter to parse canonical IDs:
+The Repeer adapter system consists of two distinct components:
+
+#### ID Domains
+ID Domains handle the parsing and validation of identifiers (addresses, product IDs, domains). They are reusable across multiple websites.
 
 ```typescript
-interface IDAdapter {
-    name: string;                    // "ethereum", "aliexpress", "github"
-    parseId(url: string): string;    // Extract canonical ID from URL
+interface IDDomain {
+    name: string;                    // "ethereum", "aliexpress-product", "domain"
+    parseId(text: string): string | null;    // Extract canonical ID from text
     validateId(id: string): boolean; // Validate ID format
     displayName(id: string): string; // Human-readable name
+    formatTrustId(id: string): string; // Format as trust ID (e.g., "ethereum:0x...")
 }
-
-// Ethereum adapter
-const ethereumAdapter: IDAdapter = {
-    name: "ethereum",
-    parseId: (url) => url.match(/0x[a-fA-F0-9]{40}/)?.[0] || "",
-    validateId: (id) => /^0x[a-fA-F0-9]{40}$/.test(id),
-    displayName: (id) => `${id.slice(0,6)}...${id.slice(-4)}`
-};
-
-// AliExpress adapter  
-const aliexpressAdapter: IDAdapter = {
-    name: "aliexpress",
-    parseId: (url) => url.match(/item\/(\d+)/)?.[1] || "",
-    validateId: (id) => /^\d+$/.test(id),
-    displayName: (id) => `AliExpress Item ${id}`
-};
-
-// second level domain adapter
-const sldAdapter: IDAdapter = {
-  ...
-}; 
-
 ```
 
-For example the second level domain adapter will 
-  - show a trust score for every link that leads to an external website. 
-  - optionally 
-    - show an experience rating tool 
-    - ask for a experience review after total 15 minutes, 5h, 10 days usage of using the website
+Examples:
+- `@repeer/ethereum-domain` - Parses Ethereum addresses
+- `@repeer/aliexpress-domain` - Parses AliExpress product IDs
+- `@repeer/domain-domain` - Parses second-level domains
+
+#### Website Adapters
+Website Adapters handle the integration with specific websites - DOM manipulation, trust score injection, and experience creation UI.
+
+```typescript
+interface WebsiteAdapter {
+    name: string;                    // "etherscan", "opensea", "aliexpress"
+    domains: string[];               // ["etherscan.io", "cn.etherscan.com"]
+    idDomains: IDDomain[];          // Which ID types this site uses
+    
+    // Core adapter methods
+    scanPage(): Promise<AgentDiscovery[]>;
+    injectTrustScores(scores: Map<string, TrustScore>): void;
+    createExperiencePrompt(agentId: string): Promise<ExperienceData>;
+}
+```
+
+Examples:
+- `@repeer/etherscan-adapter` - Etherscan.io integration (uses ethereum-domain)
+- `@repeer/opensea-adapter` - OpenSea NFT marketplace (uses ethereum-domain)
+- `@repeer/uniswap-adapter` - Uniswap interface (uses ethereum-domain)
+- `@repeer/aliexpress-adapter` - AliExpress product pages (uses aliexpress-domain)
+
+#### Key Differences
+
+**ID Domains** (What to identify):
+- Parse and validate identifiers
+- Format trust IDs consistently
+- Shared across multiple sites
+- No DOM manipulation
+
+**Website Adapters** (How to integrate):
+- Site-specific DOM selectors
+- Injection point logic
+- Experience creation UI
+- Visual styling
+
+For example, Etherscan, OpenSea, and Uniswap all use the **same** ethereum-domain for parsing addresses, but need **different** website adapters because:
+- Etherscan shows addresses in tables
+- OpenSea shows them on NFT cards  
+- Uniswap shows them in liquidity pools
+
+#### Adding New Platform Support
+
+1. **Check if ID Domain exists** - Can you reuse ethereum-domain, or do you need a new ID type?
+2. **Create Website Adapter** - Implement the site-specific integration
+3. **Publish as NPM package** - e.g., `@repeer/newsite-adapter`
+4. **Submit PR** to include in browser extension build
 
 ### Caching Strategy
 

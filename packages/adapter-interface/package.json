@@ -1,0 +1,22 @@
+{
+  "name": "@repeer/adapter-interface",
+  "version": "0.1.0",
+  "description": "Common interfaces and types for Repeer adapters",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "repeer",
+    "adapter",
+    "interface"
+  ],
+  "author": "Repeer Contributors",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "typescript": "^5.7.2"
+  }
+}

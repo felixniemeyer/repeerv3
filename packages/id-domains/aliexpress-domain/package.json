@@ -1,0 +1,27 @@
+{
+  "name": "@repeer/aliexpress-domain",
+  "version": "0.1.0",
+  "description": "AliExpress product ID parsing and validation for Repeer",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "repeer",
+    "aliexpress",
+    "ecommerce",
+    "trust"
+  ],
+  "author": "Repeer Contributors",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.24",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.7.2"
+  }
+}

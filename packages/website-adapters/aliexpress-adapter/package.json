@@ -1,0 +1,31 @@
+{
+  "name": "@repeer/aliexpress-adapter",
+  "version": "0.1.0",
+  "description": "AliExpress website adapter for Repeer",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "repeer",
+    "aliexpress",
+    "ecommerce",
+    "adapter"
+  ],
+  "author": "Repeer Contributors",
+  "license": "MIT",
+  "dependencies": {
+    "@repeer/adapter-interface": "^0.1.0",
+    "@repeer/aliexpress-domain": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.24",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.7.2"
+  }
+}
