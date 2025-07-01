@@ -8,7 +8,8 @@ import {
   formatVolume
 } from '@repeer/adapter-interface';
 import { ethereumDomain } from '@repeer/ethereum-domain';
-import { createEtherscanExperienceComponent } from './createExperienceComponent';
+import { createApp, ref, computed } from 'vue';
+import type { TrustClient } from '@repeer/trust-client';
 
 export class AdvancedEtherscanAdapter implements WebsiteAdapter {
   name = 'etherscan-advanced';
@@ -497,8 +498,8 @@ export class AdvancedEtherscanAdapter implements WebsiteAdapter {
     });
   }
   
-  // New UI creation method - provides component definition for external Vue app
-  async createExperienceUI(container: HTMLElement, agentId: string, options?: any): Promise<{
+  // New UI creation method - creates Vue app instance in provided container
+  async createExperienceUI(container: HTMLElement, agentId: string, options?: { client?: TrustClient }): Promise<{
     onSubmit: (callback: (data: ExperienceData) => void) => void;
     onCancel: (callback: () => void) => void;
     destroy: () => void;
@@ -508,20 +509,24 @@ export class AdvancedEtherscanAdapter implements WebsiteAdapter {
     let submitCallback: ((data: ExperienceData) => void) | null = null;
     let cancelCallback: (() => void) | null = null;
     
-    // Return component definition and control interface
-    const componentDef = createEtherscanExperienceComponent({
+    // Create Vue app with our UI component
+    const app = createApp(UI, {
       agentId,
       address,
-      onSubmit: (data: ExperienceData) => {
-        if (submitCallback) submitCallback(data);
-      },
-      onCancel: () => {
-        if (cancelCallback) cancelCallback();
-      }
+      client: options?.client
     });
     
-    // Store component definition on the container for external mounting
-    (container as any).__repeerComponentDef = componentDef;
+    // Set up event handlers
+    app.config.globalProperties.$emit = (event: string, data?: any) => {
+      if (event === 'submit' && submitCallback) {
+        submitCallback(data);
+      } else if (event === 'cancel' && cancelCallback) {
+        cancelCallback();
+      }
+    };
+    
+    // Mount the app to the container
+    const instance = app.mount(container);
     
     // Return the interface
     return {
@@ -532,8 +537,7 @@ export class AdvancedEtherscanAdapter implements WebsiteAdapter {
         cancelCallback = callback;
       },
       destroy: () => {
-        // External app handles unmounting
-        delete (container as any).__repeerComponentDef;
+        app.unmount();
       }
     };
   }
