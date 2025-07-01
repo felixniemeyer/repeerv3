@@ -6,6 +6,10 @@ module.exports = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
+  moduleNameMapper: {
+    '^@repeer/adapter-interface$': '<rootDir>/../../adapter-interface/src/index.ts',
+    '^@repeer/ethereum-domain$': '<rootDir>/../../id-domains/ethereum-domain/src/index.ts',
+  },
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',

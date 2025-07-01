@@ -9,7 +9,7 @@
     "build:firefox": "node scripts/build-firefox.js",
     "preview": "vite preview",
     "type-check": "vue-tsc --noEmit",
-    "test": "vitest",
+    "test": "vitest --run",
     "test:ui": "vitest --ui"
   },
   "dependencies": {

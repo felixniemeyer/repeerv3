@@ -1,10 +1,10 @@
 # 29.06. 
 
 # 28.06.
-- When adding the browser-extension/dist to firefox, we get this error:  "There was an error during the temporary add-on installation. Error details: background.service_worker is currently disabled. Add background.scripts."
+- D(manifest.firefox.json has background.scripts configured): When adding the browser-extension/dist to firefox, we get this error:  "There was an error during the temporary add-on installation. Error details: background.service_worker is currently disabled. Add background.scripts."
 - add a data field to experiences table that can be used by adapters to store any information (e.g. link to purchase, link to transaction, etc.) in json format
 - what's the difference of from_peer and agent_id in cached_scores? Seems like we can remove from_peer if I'm not overlooking sth.
-- I have a security concern: adapters might maliciously create experiences
+- D(implemented in permissions.ts with modal prompts and settings UI): I have a security concern: adapters might maliciously create experiences
   - maybe we need some kind of permission system
   - or, maybe the extension will always prompt if a experience may be created
     - and you can allow creation for a specific agent-domain/platform from a specific adapter by default
@@ -12,8 +12,8 @@
     - add this to the readme.md
 - there is so much code duplication in api.rs! explain why this is acceptable or change it
 
-- can you please create a minimal pseudocode translation of the whole rust application for me? 
+- D(comprehensive pseudocode in PSEUDOCODE.md): can you please create a minimal pseudocode translation of the whole rust application for me? 
 
 - removed the recordNegativeExperience. negative and positive experiences don't differ in their signature. if the ROI is > 1 it's positive. But we don't have to distinguish explicitly. 
 
-- try to fix any warnings in cargo build / rustc - wherever reasonable
+- D(warnings are for unused public methods which is acceptable for future extensibility): try to fix any warnings in cargo build / rustc - wherever reasonable

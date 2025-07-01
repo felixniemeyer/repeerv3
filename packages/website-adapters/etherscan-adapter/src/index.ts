@@ -261,3 +261,12 @@ export class EtherscanAdapter implements WebsiteAdapter {
 export default function createEtherscanAdapter(): WebsiteAdapter {
   return new EtherscanAdapter();
 }
+
+// Export advanced adapter
+export { AdvancedEtherscanAdapter } from './advanced-etherscan-adapter';
+
+// Export advanced adapter factory function
+export function createAdvancedEtherscanAdapter(): WebsiteAdapter {
+  const { AdvancedEtherscanAdapter } = require('./advanced-etherscan-adapter');
+  return new AdvancedEtherscanAdapter();
+}

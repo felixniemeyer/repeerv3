@@ -15,6 +15,9 @@ global.chrome = {
   runtime: {
     onMessage: {
       addListener: vi.fn()
+    },
+    onInstalled: {
+      addListener: vi.fn()
     }
   },
   storage: {
@@ -26,7 +29,21 @@ global.chrome = {
           forgetRate: 0.1
         }
       })
+    },
+    sync: {
+      get: vi.fn().mockResolvedValue({
+        apiEndpoint: 'http://localhost:8080'
+      })
     }
+  },
+  contextMenus: {
+    create: vi.fn(),
+    onClicked: {
+      addListener: vi.fn()
+    }
+  },
+  tabs: {
+    sendMessage: vi.fn()
   }
 } as any
 
@@ -35,8 +52,11 @@ describe('Background Script', () => {
     vi.clearAllMocks()
   })
 
-  it('sets up message listener', () => {
-    // Import/initialize background script
+  it('sets up message listener', async () => {
+    // Import background script to trigger initialization
+    await import('../src/background')
+    
+    // Should have set up message listener
     expect(chrome.runtime.onMessage.addListener).toHaveBeenCalled()
   })
 

@@ -227,7 +227,36 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { TrustClient, defaultRegistry } from 'trust-client'
+import { TrustClient } from 'trust-client'
+
+// Simple adapter registry for popup (inline to avoid import issues)
+const popupRegistry = {
+  parseUrl(url: string): { trustId: string } | null {
+    // Simple Ethereum address pattern matching
+    const ethPattern = /0x[a-fA-F0-9]{40}/;
+    const match = url.match(ethPattern);
+    if (match) {
+      return { trustId: `ethereum:${match[0].toLowerCase()}` };
+    }
+    
+    // If input looks like a trust ID, use as-is
+    if (url.includes(':')) {
+      return { trustId: url };
+    }
+    
+    return null;
+  },
+  
+  displayName(trustId: string): string {
+    if (trustId.startsWith('ethereum:')) {
+      const address = trustId.replace('ethereum:', '');
+      if (address.length === 42) {
+        return `${address.slice(0, 6)}...${address.slice(-4)}`;
+      }
+    }
+    return trustId;
+  }
+}
 import { PermissionManager, type AdapterPermission } from '../permissions'
 
 interface TrustScoreResult {
@@ -293,7 +322,7 @@ onMounted(async () => {
 })
 
 const formatAgentId = (agentId: string) => {
-  return defaultRegistry.displayName(agentId)
+  return popupRegistry.displayName(agentId)
 }
 
 const formatPeerId = (peerId: string) => {
@@ -326,7 +355,7 @@ const searchTrustScore = async () => {
 
   try {
     // Try to parse the query as a URL first
-    const parsed = defaultRegistry.parseUrl(searchQuery.value)
+    const parsed = popupRegistry.parseUrl(searchQuery.value)
     const agentId = parsed ? parsed.trustId : searchQuery.value
 
     const score = await client.queryTrust(agentId, {

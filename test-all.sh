@@ -74,6 +74,39 @@ run_test() {
 # Save original directory
 ORIGINAL_DIR=$(pwd)
 
+# Build step (from run_tests.sh)
+echo ""
+echo "🔨 Building Components"
+echo "====================="
+
+if [ -d "trust-node" ]; then
+    echo "📋 Building trust-node..."
+    cd trust-node
+    if $VERBOSE; then
+        cargo build --release
+    else
+        cargo build --release > /dev/null 2>&1
+    fi
+    cd "$ORIGINAL_DIR"
+    echo "   ✅ trust-node built successfully"
+fi
+
+if [ -d "trust-client" ]; then
+    echo "📋 Building trust-client..."
+    cd trust-client
+    if $VERBOSE; then
+        npm run build
+    else
+        npm run build > /dev/null 2>&1
+    fi
+    cd "$ORIGINAL_DIR"
+    echo "   ✅ trust-client built successfully"
+fi
+
+echo ""
+echo "🧪 Running Tests"
+echo "==============="
+
 # 1. Rust Trust Node Tests
 if [ -d "trust-node" ]; then
     run_test "Rust Trust Node" "trust-node" "cargo test"
@@ -114,10 +147,33 @@ for adapter_dir in packages/website-adapters/*/; do
     fi
 done
 
-# 7. Integration Tests (if they exist)
+# 7. Integration Tests (if they exist) - includes setup from run_tests.sh
 if [ -d "tests" ]; then
     if [ -f "tests/package.json" ] && grep -q '"test"' tests/package.json; then
+        echo ""
+        echo "📋 Installing integration test dependencies..."
+        cd tests
+        if $VERBOSE; then
+            npm install
+        else
+            npm install > /dev/null 2>&1
+        fi
+        cd "$ORIGINAL_DIR"
+        echo "   ✅ Dependencies installed"
+        
         run_test "Integration Tests" "tests" "npm test"
+        
+        echo ""
+        echo "📋 Cleaning up integration test artifacts..."
+        cd tests
+        if $VERBOSE; then
+            npm run clean
+        else
+            npm run clean > /dev/null 2>&1
+        fi
+        cd "$ORIGINAL_DIR"
+        echo "   ✅ Cleanup completed"
+        
     elif [ -f "tests/integration.test.ts" ]; then
         # Try to run integration tests with different methods
         if command -v npm > /dev/null && [ -f "tests/package.json" ]; then

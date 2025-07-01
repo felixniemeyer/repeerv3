@@ -12,7 +12,26 @@ const mockEthereumDomain = {
 };
 
 // Mock the modules
-jest.mock('@repeer/adapter-interface', () => ({}));
+jest.mock('@repeer/adapter-interface', () => ({
+  calculateTrustColor: jest.fn((roi: number, volume: number) => {
+    const x = Math.round(255 / (1 + 0.001 * volume));
+    const clampedROI = Math.max(0, Math.min(2, roi));
+    const t = clampedROI / 2;
+    const red = Math.round(255 * (1 - t) + x * t);
+    const green = Math.round(x * (1 - t) + 255 * t);
+    const blue = 255;
+    const redHex = red.toString(16).padStart(2, '0');
+    const greenHex = green.toString(16).padStart(2, '0');
+    const blueHex = blue.toString(16).padStart(2, '0');
+    return `#${redHex}${greenHex}${blueHex}`;
+  }),
+  darkenColor: jest.fn((hex: string) => hex),
+  formatVolume: jest.fn((volume: number) => {
+    if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`;
+    if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`;
+    return volume.toFixed(0);
+  })
+}));
 jest.mock('@repeer/ethereum-domain', () => ({
   ethereumDomain: mockEthereumDomain
 }));

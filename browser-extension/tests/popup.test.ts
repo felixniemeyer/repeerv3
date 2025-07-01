@@ -13,13 +13,7 @@ vi.mock('trust-client', () => ({
     getPeers: vi.fn().mockResolvedValue([]),
     addPeer: vi.fn().mockResolvedValue({}),
     health: vi.fn().mockResolvedValue(true)
-  })),
-  defaultRegistry: {
-    parseUrl: vi.fn().mockReturnValue({
-      trustId: 'test-id',
-      platform: 'ethereum'
-    })
-  }
+  }))
 }))
 
 // Mock chrome APIs
@@ -32,6 +26,24 @@ global.chrome = {
           maxDepth: 3,
           forgetRate: 0.1
         }
+      }),
+      set: vi.fn().mockResolvedValue({}),
+    },
+    sync: {
+      get: vi.fn().mockImplementation((key) => {
+        if (key === 'settings') {
+          return Promise.resolve({
+            settings: {
+              apiEndpoint: 'http://localhost:8080',
+              maxDepth: 3,
+              forgetRate: 0.0
+            }
+          });
+        }
+        if (key === 'repeer_adapter_permissions') {
+          return Promise.resolve({ repeer_adapter_permissions: [] });
+        }
+        return Promise.resolve({});
       }),
       set: vi.fn().mockResolvedValue({}),
     }
@@ -65,18 +77,18 @@ describe('Popup App', () => {
     await wrapper.vm.$nextTick()
     
     // Settings should be loaded from chrome storage
-    expect(chrome.storage.local.get).toHaveBeenCalledWith('repeer-settings')
+    expect(chrome.storage.sync.get).toHaveBeenCalledWith(['settings'])
   })
 
   it('handles search query input', async () => {
     const wrapper = mount(App)
     await wrapper.vm.$nextTick()
     
-    const searchInput = wrapper.find('input[placeholder*="search"]')
+    const searchInput = wrapper.find('input[placeholder*="Search"]')
     expect(searchInput.exists()).toBe(true)
     
     await searchInput.setValue('0x1234567890123456789012345678901234567890')
-    expect(searchInput.element.value).toBe('0x1234567890123456789012345678901234567890')
+    expect((searchInput.element as HTMLInputElement).value).toBe('0x1234567890123456789012345678901234567890')
   })
 
   it('displays trust score when search is performed', async () => {
@@ -84,15 +96,15 @@ describe('Popup App', () => {
     await wrapper.vm.$nextTick()
     
     // Find search input and button
-    const searchInput = wrapper.find('input[placeholder*="search"]')
-    const searchButton = wrapper.find('button')
+    const searchInput = wrapper.find('input[placeholder*="Search"]')
+    const searchButton = wrapper.find('.search-btn')
     
     await searchInput.setValue('test-address')
     await searchButton.trigger('click')
     await wrapper.vm.$nextTick()
     
-    // Should display trust score
-    expect(wrapper.text()).toContain('Trust Score')
+    // Should display trust score data
+    expect(wrapper.text()).toContain('Expected ROI')
   })
 
   it('updates settings when changed', async () => {
@@ -109,7 +121,7 @@ describe('Popup App', () => {
       await wrapper.vm.$nextTick()
       
       // Should show settings form
-      expect(wrapper.text()).toContain('Node URL')
+      expect(wrapper.text()).toContain('Trust Node API Endpoint')
     }
   })
 })
