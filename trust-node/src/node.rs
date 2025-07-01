@@ -374,12 +374,30 @@ impl<S: Storage + 'static> TrustNode<S> {
                 let _ = response.send(result);
             }
             NodeCommand::AddPeer { peer, response } => {
-                // Parse and add peer to libp2p
-                if let Ok(peer_id) = peer.peer_id.parse::<PeerId>() {
-                    // Try to parse as multiaddr with peer id
-                    if let Ok(addr) = peer.peer_id.parse::<Multiaddr>() {
-                        self.swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
+                // Try to parse peer_id as a multiaddr (e.g., /ip4/127.0.0.1/tcp/9015/p2p/12D3KooW...)
+                if let Ok(addr) = peer.peer_id.parse::<Multiaddr>() {
+                    // Extract peer ID from the multiaddr
+                    if let Some(libp2p::multiaddr::Protocol::P2p(peer_id_hash)) = addr.iter().last() {
+                        if let Ok(peer_id) = PeerId::from_multihash(peer_id_hash.into()) {
+                            debug!("Adding peer {} at address {}", peer_id, addr);
+                            
+                            // Add address to Kademlia DHT
+                            self.swarm.behaviour_mut().kademlia.add_address(&peer_id, addr.clone());
+                            
+                            // Attempt to dial the peer
+                            if let Err(e) = self.swarm.dial(addr) {
+                                warn!("Failed to dial peer {}: {}", peer_id, e);
+                            } else {
+                                info!("Dialing peer {} successfully initiated", peer_id);
+                            }
+                        } else {
+                            warn!("Failed to parse peer ID from multiaddr: {}", peer.peer_id);
+                        }
+                    } else {
+                        warn!("Multiaddr does not contain a peer ID: {}", peer.peer_id);
                     }
+                } else {
+                    warn!("Failed to parse peer_id as multiaddr: {}", peer.peer_id);
                 }
                 
                 self.peers.insert(peer.peer_id.clone(), peer.clone());
@@ -474,23 +492,28 @@ impl<S: Storage + 'static> TrustNode<S> {
 
             // Then try to get fresh scores from connected peers
             for peer in self.peers.values() {
-                if let Ok(peer_id) = peer.peer_id.parse::<PeerId>() {
-                    // Only query if peer is connected
-                    if self.swarm.is_connected(&peer_id) {
-                        let peer_query = TrustQuery {
-                            agent_ids: query.agent_ids.clone(),
-                            max_depth: max_depth.saturating_sub(1),
-                            point_in_time: Some(point_in_time),
-                            forget_rate: Some(forget_rate),
-                        };
+                // Try to extract peer ID from multiaddr
+                if let Ok(addr) = peer.peer_id.parse::<Multiaddr>() {
+                    if let Some(libp2p::multiaddr::Protocol::P2p(peer_id_hash)) = addr.iter().last() {
+                        if let Ok(peer_id) = PeerId::from_multihash(peer_id_hash.into()) {
+                            // Only query if peer is connected
+                            if self.swarm.is_connected(&peer_id) {
+                                let peer_query = TrustQuery {
+                                    agent_ids: query.agent_ids.clone(),
+                                    max_depth: max_depth.saturating_sub(1),
+                                    point_in_time: Some(point_in_time),
+                                    forget_rate: Some(forget_rate),
+                                };
 
-                        let request_id = self.swarm
-                            .behaviour_mut()
-                            .request_response
-                            .send_request(&peer_id, peer_query);
+                                let request_id = self.swarm
+                                    .behaviour_mut()
+                                    .request_response
+                                    .send_request(&peer_id, peer_query);
 
-                        waiting_for.insert(peer_id);
-                        request_ids.push(request_id);
+                                waiting_for.insert(peer_id);
+                                request_ids.push(request_id);
+                            }
+                        }
                     }
                 }
             }

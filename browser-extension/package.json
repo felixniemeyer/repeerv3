@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc && vite build",
-    "build:firefox": "node scripts/build-firefox.js",
+    "build": "node scripts/build-all.js",
+    "build:chrome": "npm run generate-icons && vue-tsc && vite build && rm -rf dist-chrome && mv dist dist-chrome",
+    "build:firefox": "npm run generate-icons && node scripts/build-firefox.js && rm -rf dist-firefox && mv dist dist-firefox",
+    "generate-icons": "./scripts/generate-icons.sh",
     "preview": "vite preview",
     "type-check": "vue-tsc --noEmit",
     "test": "vitest --run",

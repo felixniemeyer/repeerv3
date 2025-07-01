@@ -1,0 +1,27 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#667eea"/>
+  
+  <!-- Trust network visualization -->
+  <!-- Central node -->
+  <circle cx="64" cy="64" r="12" fill="white"/>
+  
+  <!-- Surrounding nodes -->
+  <circle cx="64" cy="32" r="8" fill="white" opacity="0.9"/>
+  <circle cx="90" cy="48" r="8" fill="white" opacity="0.9"/>
+  <circle cx="90" cy="80" r="8" fill="white" opacity="0.9"/>
+  <circle cx="64" cy="96" r="8" fill="white" opacity="0.9"/>
+  <circle cx="38" cy="80" r="8" fill="white" opacity="0.9"/>
+  <circle cx="38" cy="48" r="8" fill="white" opacity="0.9"/>
+  
+  <!-- Trust connections -->
+  <path d="M64 52 L64 44" stroke="white" stroke-width="3" opacity="0.6"/>
+  <path d="M74 58 L82 52" stroke="white" stroke-width="3" opacity="0.6"/>
+  <path d="M74 70 L82 76" stroke="white" stroke-width="3" opacity="0.6"/>
+  <path d="M64 76 L64 84" stroke="white" stroke-width="3" opacity="0.6"/>
+  <path d="M54 70 L46 76" stroke="white" stroke-width="3" opacity="0.6"/>
+  <path d="M54 58 L46 52" stroke="white" stroke-width="3" opacity="0.6"/>
+  
+  <!-- Trust indicator in center -->
+  <circle cx="64" cy="64" r="6" fill="#667eea"/>
+</svg>

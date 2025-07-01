@@ -80,6 +80,8 @@ Therefore we calculate the average of PV-ROIs weighted by the experience volumes
 Often we don't havn't made experiences with agents yet but our friends have. Even if we have made own experiences, our trust score can be enriched with additional experiences people we trust have made. 
 In order to draw from the experiences of our network, their recommendations are automatically requested and combined into the final score. 
 
+When we ask friends, they ask their friends and so on until a certain amount of hops are reached (3 hops by default: friends, friends of friends and their friends. 
+
 Friends' nodes report their estimates (maybe even forwarding the request to their network first), and we weigh them based on our trust level for them. 
 
 Therefore users maintain a recommender quality factor for their friends. The volumes friends report are multiplied with that factor before being incorporated into the final score. 
@@ -535,7 +537,6 @@ This is cyber anarchy. You are responsible yourself. This reputation system is a
 ### ✅ Phase 3: Polish & Demo (Complete)
 - **Comprehensive Testing**: Unit tests, integration tests, performance benchmarks
 - **Demo Data Generator**: Realistic trust scenarios across multiple platforms
-- **Performance Optimization**: Query caching, request deduplication, debounced scanning
 - **Documentation**: Complete adapter development guide and API reference
 
 ## 🛠️ Development

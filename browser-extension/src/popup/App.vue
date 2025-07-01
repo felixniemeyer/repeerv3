@@ -1,7 +1,33 @@
 <template>
   <div class="popup-container">
     <header class="header">
-      <h1 class="title">Repeer Trust Network</h1>
+      <div class="header-content">
+        <svg class="logo" width="24" height="24" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Trust network visualization -->
+          <!-- Central node -->
+          <circle cx="64" cy="64" r="12" fill="currentColor"/>
+          
+          <!-- Surrounding nodes -->
+          <circle cx="64" cy="32" r="8" fill="currentColor" opacity="0.9"/>
+          <circle cx="90" cy="48" r="8" fill="currentColor" opacity="0.9"/>
+          <circle cx="90" cy="80" r="8" fill="currentColor" opacity="0.9"/>
+          <circle cx="64" cy="96" r="8" fill="currentColor" opacity="0.9"/>
+          <circle cx="38" cy="80" r="8" fill="currentColor" opacity="0.9"/>
+          <circle cx="38" cy="48" r="8" fill="currentColor" opacity="0.9"/>
+          
+          <!-- Trust connections -->
+          <path d="M64 52 L64 44" stroke="currentColor" stroke-width="3" opacity="0.6"/>
+          <path d="M74 58 L82 52" stroke="currentColor" stroke-width="3" opacity="0.6"/>
+          <path d="M74 70 L82 76" stroke="currentColor" stroke-width="3" opacity="0.6"/>
+          <path d="M64 76 L64 84" stroke="currentColor" stroke-width="3" opacity="0.6"/>
+          <path d="M54 70 L46 76" stroke="currentColor" stroke-width="3" opacity="0.6"/>
+          <path d="M54 58 L46 52" stroke="currentColor" stroke-width="3" opacity="0.6"/>
+          
+          <!-- Trust indicator in center -->
+          <circle cx="64" cy="64" r="6" fill="white"/>
+        </svg>
+        <h1 class="title">Repeer Trust Network</h1>
+      </div>
       <div class="status" :class="{ connected: isConnected, disconnected: !isConnected }">
         <span class="status-dot"></span>
         {{ isConnected ? 'Connected' : 'Disconnected' }}
@@ -517,13 +543,26 @@ const testConnection = async () => {
 .header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 16px;
+  padding: 1rem;
   text-align: center;
 }
 
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.logo {
+  color: white;
+  flex-shrink: 0;
+}
+
 .title {
-  margin: 0 0 8px 0;
-  font-size: 18px;
+  margin: 0;
+  font-size: 1.125rem;
   font-weight: 600;
 }
 
@@ -531,13 +570,13 @@ const testConnection = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 0.375rem;
+  font-size: 0.75rem;
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
 }
 
@@ -557,7 +596,7 @@ const testConnection = async () => {
 
 .tab {
   flex: 1;
-  padding: 12px;
+  padding: 0.75rem;
   border: none;
   background: none;
   cursor: pointer;
@@ -574,8 +613,8 @@ const testConnection = async () => {
 }
 
 .content {
-  padding: 16px;
-  max-height: 400px;
+  padding: 1rem;
+  max-height: 25rem;
   overflow-y: auto;
 }
 

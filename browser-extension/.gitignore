@@ -1,4 +1,6 @@
 dist/
-icons/
+dist-chrome/
+dist-firefox/
+icons/*.png
 manifest.json
 node_modules/
