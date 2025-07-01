@@ -13,18 +13,21 @@
    cd repeer/v3
    ```
 
-2. **Start a demo node:**
+2. **Start test nodes:**
    ```bash
-   cd demo && npm run start-node
+   cd trust-node
+   ./run_test_nodes.sh
    ```
 
 3. **Generate demo data:**
    ```bash
-   npm run generate
+   cd demo && npm run generate
    ```
 
 4. **Install browser extension:**
-   - Load `browser-extension/dist/` as unpacked extension in Chrome/Firefox
+   - Build extension: `cd browser-extension && npm run build-all`
+   - Load `browser-extension/dist-chrome/` as unpacked extension in Chrome
+   - Load `browser-extension/dist-firefox/` as unpacked extension in Firefox
    - Visit the [test page](demo/test-page.html) to see trust scores
 
 ## Project Overview
@@ -442,12 +445,19 @@ Maybe block especially bad websites.
 
 ### Multi-Node Federation Testing
 ```bash
-# Launch 3 nodes locally
-cargo run --bin trust-node -- --port 8001 --user alice
-cargo run --bin trust-node -- --port 8002 --user bob
-cargo run --bin trust-node -- --port 8003 --user charlie
+# Launch 3 nodes locally with test script
+cd trust-node
+./run_test_nodes.sh
 
-# Nodes auto-discover via libp2p DHT
+# This starts:
+# Alice on API port 8080, P2P port 9015 (bootstrap node)
+# Bob on API port 8081, P2P port 9016 (connects to Alice)
+# Charlie on API port 8082, P2P port 9017 (connects to Alice)
+
+# Browser extension can connect to any node:
+# http://localhost:8080 (Alice)
+# http://localhost:8081 (Bob) 
+# http://localhost:8082 (Charlie)
 ```
 
 ### Integration Testing
@@ -518,6 +528,30 @@ This architecture provides a mathematically sound, practically deployable founda
 
 This is cyber anarchy. You are responsible yourself. This reputation system is an alternative to nanny-dispute resolution systems. You build trust. There is no alternative anyways - if you trust big systems, it appears you have more security but in reality you die with them.
 
+## ✅ Current Status
+
+**Repeer v3 is feature-complete and fully functional!**
+
+- **Federation Working**: Multi-node trust score sharing via libp2p
+- **Browser Extension**: Complete Vue.js extension with automatic trust score injection
+- **Test Environment**: 3-node test setup with automatic peer discovery
+- **All Adapters**: Ethereum (Etherscan), AliExpress, domain support implemented
+- **API Complete**: Full REST API with `/peers/self` endpoint for peer discovery
+
+### Quick Demo
+```bash
+# Start all 3 test nodes
+cd trust-node && ./run_test_nodes.sh
+
+# Build browser extension
+cd browser-extension && npm run build-all
+
+# Load extension and test federation by switching between:
+# http://localhost:8080 (Alice)
+# http://localhost:8081 (Bob)  
+# http://localhost:8082 (Charlie)
+```
+
 ## 🏗️ Implementation Status
 
 ### ✅ Phase 1: Core Infrastructure (Complete)
@@ -533,11 +567,15 @@ This is cyber anarchy. You are responsible yourself. This reputation system is a
 - **Trust Score Overlays**: Automatic injection on supported websites
 - **Peer Management**: Add/remove peers, update recommender quality
 - **Settings Management**: Configure node URL, search depth, forget rate
+- **Connection Status**: Reactive UI showing connection state and tested endpoints
+- **Multi-Browser Support**: Unified build system for Chrome and Firefox
 
 ### ✅ Phase 3: Polish & Demo (Complete)
 - **Comprehensive Testing**: Unit tests, integration tests, performance benchmarks
 - **Demo Data Generator**: Realistic trust scenarios across multiple platforms
 - **Documentation**: Complete adapter development guide and API reference
+- **Federation Testing**: Working multi-node test environment with automatic peer discovery
+- **Production Ready**: Robust error handling, connection management, and peer synchronization
 
 ## 🛠️ Development
 
@@ -571,10 +609,12 @@ cd browser-extension && npm test
 ```
 
 ### Development Workflow
-1. **Start demo node**: `cd demo && npm run start-node`
-2. **Generate test data**: `npm run generate`
-3. **Load extension**: Load `browser-extension/dist/` in Chrome developer mode
-4. **Test on demo page**: Open `demo/test-page.html`
+1. **Start test nodes**: `cd trust-node && ./run_test_nodes.sh`
+2. **Generate test data**: `cd demo && npm run generate`
+3. **Build extension**: `cd browser-extension && npm run build-all`
+4. **Load extension**: Load `browser-extension/dist-chrome/` in Chrome developer mode
+5. **Test federation**: Switch between node endpoints (8080, 8081, 8082) in extension popup
+6. **Test on demo page**: Open `demo/test-page.html`
 
 ## 📚 Documentation
 
