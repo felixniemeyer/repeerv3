@@ -24,9 +24,9 @@ for size in "${SIZES[@]}"; do
     
     # Try magick first (ImageMagick 7), fall back to convert (ImageMagick 6)
     if command -v magick &> /dev/null; then
-        magick "$SVG_FILE" -background none -resize ${size}x${size} "$OUTPUT_FILE"
+        magick -background transparent "$SVG_FILE" -resize ${size}x${size} PNG32:"$OUTPUT_FILE" 2>/dev/null
     elif command -v convert &> /dev/null; then
-        convert -background none -resize ${size}x${size} "$SVG_FILE" "$OUTPUT_FILE"
+        convert -background transparent "$SVG_FILE" -resize ${size}x${size} PNG32:"$OUTPUT_FILE" 2>/dev/null
     else
         echo "Error: ImageMagick not found. Please install ImageMagick."
         exit 1

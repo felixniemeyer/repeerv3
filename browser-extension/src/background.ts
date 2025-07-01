@@ -105,21 +105,29 @@ async function handleRecordExperience(experience: any) {
   }
 }
 
-// Set up context menu for recording experiences
+// Set up context menu for recording experiences (if available)
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'record-experience',
-    title: 'Record Trust Experience',
-    contexts: ['page', 'link'],
-  });
-});
-
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'record-experience' && tab?.id) {
-    // Send message to content script to show experience recording UI
-    chrome.tabs.sendMessage(tab.id, {
-      type: 'SHOW_RECORD_UI',
-      url: info.pageUrl || info.linkUrl,
-    });
+  if (chrome.contextMenus) {
+    try {
+      chrome.contextMenus.create({
+        id: 'record-experience',
+        title: 'Record Trust Experience',
+        contexts: ['page', 'link'],
+      });
+    } catch (error) {
+      console.log('Context menus not available:', error);
+    }
   }
 });
+
+if (chrome.contextMenus?.onClicked) {
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === 'record-experience' && tab?.id) {
+      // Send message to content script to show experience recording UI
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'SHOW_RECORD_UI',
+        url: info.pageUrl || info.linkUrl,
+      });
+    }
+  });
+}

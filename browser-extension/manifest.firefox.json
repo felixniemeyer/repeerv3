@@ -3,9 +3,15 @@
   "name": "Repeer Trust Network",
   "version": "0.1.0",
   "description": "Decentralized trust scores for web3 and web2 interactions",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "repeer@anthropic.com"
+    }
+  },
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "contextMenus"
   ],
   "host_permissions": [
     "http://localhost/*",

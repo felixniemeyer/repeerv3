@@ -72,6 +72,9 @@ pub enum NodeCommand {
         overwrite: bool,
         response: oneshot::Sender<Result<()>>,
     },
+    GetSelfPeerId {
+        response: oneshot::Sender<Result<String>>,
+    },
 }
 
 pub struct TrustNode<S: Storage> {
@@ -440,6 +443,10 @@ impl<S: Storage + 'static> TrustNode<S> {
             NodeCommand::ImportTrustData { data, overwrite, response } => {
                 let result = self.import_trust_data(data, overwrite).await;
                 let _ = response.send(result);
+            }
+            NodeCommand::GetSelfPeerId { response } => {
+                let peer_id = self.swarm.local_peer_id().to_string();
+                let _ = response.send(Ok(peer_id));
             }
         }
         Ok(())

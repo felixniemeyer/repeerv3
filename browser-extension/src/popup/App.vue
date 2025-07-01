@@ -2,35 +2,14 @@
   <div class="popup-container">
     <header class="header">
       <div class="header-content">
-        <svg class="logo" width="24" height="24" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Trust network visualization -->
-          <!-- Central node -->
-          <circle cx="64" cy="64" r="12" fill="currentColor"/>
-          
-          <!-- Surrounding nodes -->
-          <circle cx="64" cy="32" r="8" fill="currentColor" opacity="0.9"/>
-          <circle cx="90" cy="48" r="8" fill="currentColor" opacity="0.9"/>
-          <circle cx="90" cy="80" r="8" fill="currentColor" opacity="0.9"/>
-          <circle cx="64" cy="96" r="8" fill="currentColor" opacity="0.9"/>
-          <circle cx="38" cy="80" r="8" fill="currentColor" opacity="0.9"/>
-          <circle cx="38" cy="48" r="8" fill="currentColor" opacity="0.9"/>
-          
-          <!-- Trust connections -->
-          <path d="M64 52 L64 44" stroke="currentColor" stroke-width="3" opacity="0.6"/>
-          <path d="M74 58 L82 52" stroke="currentColor" stroke-width="3" opacity="0.6"/>
-          <path d="M74 70 L82 76" stroke="currentColor" stroke-width="3" opacity="0.6"/>
-          <path d="M64 76 L64 84" stroke="currentColor" stroke-width="3" opacity="0.6"/>
-          <path d="M54 70 L46 76" stroke="currentColor" stroke-width="3" opacity="0.6"/>
-          <path d="M54 58 L46 52" stroke="currentColor" stroke-width="3" opacity="0.6"/>
-          
-          <!-- Trust indicator in center -->
-          <circle cx="64" cy="64" r="6" fill="white"/>
-        </svg>
         <h1 class="title">Repeer Trust Network</h1>
       </div>
-      <div class="status" :class="{ connected: isConnected, disconnected: !isConnected }">
+      <div class="status" :class="connectionState">
         <span class="status-dot"></span>
-        {{ isConnected ? 'Connected' : 'Disconnected' }}
+        <div class="status-info">
+          <div class="status-text">{{ statusText }}</div>
+          <div class="status-endpoint">{{ endpointDisplay }}</div>
+        </div>
       </div>
     </header>
 
@@ -156,7 +135,7 @@
           <input 
             v-model="settings.apiEndpoint" 
             placeholder="http://localhost:8080"
-            @change="saveSettings"
+            @change="testConnection"
             class="input"
           >
         </div>
@@ -211,10 +190,6 @@
           </div>
         </div>
 
-        <button @click="testConnection" class="test-btn">Test Connection</button>
-        <div v-if="connectionTest" class="connection-result" :class="connectionTest.success ? 'success' : 'error'">
-          {{ connectionTest.message }}
-        </div>
       </div>
     </main>
 
@@ -252,7 +227,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { TrustClient } from 'trust-client'
 
 // Simple adapter registry for popup (inline to avoid import issues)
@@ -306,7 +281,6 @@ const searchQuery = ref('')
 const currentScore = ref<TrustScoreResult | null>(null)
 const recentScores = ref<TrustScoreResult[]>([])
 const peers = ref<Peer[]>([])
-const isConnected = ref(false)
 const showRecordExperience = ref(false)
 
 const newPeer = ref({
@@ -329,8 +303,11 @@ const experienceForm = ref({
   notes: ''
 })
 
-const connectionTest = ref<{ success: boolean, message: string } | null>(null)
+type ConnectionState = 'connected' | 'connecting' | 'failed'
+
 const permissions = ref<AdapterPermission[]>([])
+const connectionState = ref<ConnectionState>('failed')
+const testedEndpoint = ref('')
 
 const tabs = [
   { id: 'scores', label: 'Trust Scores' },
@@ -404,6 +381,7 @@ const searchTrustScore = async () => {
     experienceForm.value.agentId = agentId
   } catch (error) {
     console.error('Error searching trust score:', error)
+    connectionState.value = 'failed'
   }
 }
 
@@ -421,6 +399,7 @@ const addPeer = async () => {
     newPeer.value = { peerId: '', name: '', quality: 0.5 }
   } catch (error) {
     console.error('Error adding peer:', error)
+    connectionState.value = 'failed'
   }
 }
 
@@ -475,11 +454,45 @@ const loadSettings = async () => {
   }
 }
 
+const testConnection = async () => {
+  // Validate URL format first
+  try {
+    new URL(settings.value.apiEndpoint)
+  } catch (urlError) {
+    console.error('Invalid URL format:', urlError)
+    testedEndpoint.value = settings.value.apiEndpoint
+    connectionState.value = 'failed'
+    return
+  }
+  
+  // Store the endpoint we're about to test
+  testedEndpoint.value = settings.value.apiEndpoint
+  
+  // Set connecting state immediately
+  connectionState.value = 'connecting'
+  
+  try {
+    // Test the new endpoint
+    client = new TrustClient(settings.value.apiEndpoint)
+    const isHealthy = await client.health()
+    
+    if (isHealthy) {
+      // Save successful connection
+      await chrome.storage.sync.set({ settings: settings.value })
+      connectionState.value = 'connected'
+    } else {
+      connectionState.value = 'failed'
+    }
+  } catch (error) {
+    console.error('Connection failed:', error)
+    connectionState.value = 'failed'
+  }
+}
+
 const saveSettings = async () => {
+  // Just save other settings (non-endpoint changes)
   try {
     await chrome.storage.sync.set({ settings: settings.value })
-    client = new TrustClient(settings.value.apiEndpoint)
-    await checkConnection()
   } catch (error) {
     console.error('Error saving settings:', error)
   }
@@ -490,6 +503,7 @@ const loadPeers = async () => {
     peers.value = await client.getPeers()
   } catch (error) {
     console.error('Error loading peers:', error)
+    connectionState.value = 'failed'
   }
 }
 
@@ -511,27 +525,35 @@ const revokePermission = async (adapterId: string, platform: string) => {
 }
 
 const checkConnection = async () => {
+  testedEndpoint.value = settings.value.apiEndpoint
   try {
-    isConnected.value = await client.health()
+    const healthy = await client.health()
+    connectionState.value = healthy ? 'connected' : 'failed'
   } catch (error) {
-    isConnected.value = false
+    connectionState.value = 'failed'
   }
 }
 
-const testConnection = async () => {
-  try {
-    const healthy = await client.health()
-    connectionTest.value = {
-      success: healthy,
-      message: healthy ? 'Connection successful!' : 'Connection failed'
-    }
-  } catch (error) {
-    connectionTest.value = {
-      success: false,
-      message: `Connection failed: ${error}`
-    }
+
+const statusText = computed(() => {
+  switch (connectionState.value) {
+    case 'connecting': return 'Connecting...'
+    case 'connected': return 'Connected'
+    case 'failed': return 'Disconnected'
   }
-}
+})
+
+const endpointDisplay = computed(() => {
+  // Show the endpoint that was actually tested
+  if (!testedEndpoint.value) return ''
+  try {
+    const url = new URL(testedEndpoint.value)
+    return `${url.hostname}:${url.port}`
+  } catch {
+    return 'Invalid URL'
+  }
+})
+
 </script>
 
 <style scoped>
@@ -574,6 +596,23 @@ const testConnection = async () => {
   font-size: 0.75rem;
 }
 
+.status-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.status-text {
+  font-weight: 500;
+}
+
+.status-endpoint {
+  font-size: 0.625rem;
+  opacity: 0.8;
+  font-family: monospace;
+}
+
 .status-dot {
   width: 0.5rem;
   height: 0.5rem;
@@ -584,8 +623,22 @@ const testConnection = async () => {
   background: #4ade80;
 }
 
-.disconnected .status-dot {
+.failed .status-dot {
   background: #f87171;
+}
+
+.connecting .status-dot {
+  background: #f59e0b;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .tabs {

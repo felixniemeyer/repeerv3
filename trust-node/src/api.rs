@@ -53,6 +53,7 @@ pub async fn run_api_server(port: u16, command_tx: mpsc::Sender<NodeCommand>) ->
         .route("/peers/:peer_id/quality", post(update_peer_quality))
         .route("/peers/connected", get(get_connected_peers))
         .route("/peers/discover", post(trigger_peer_discovery))
+        .route("/peers/self", get(get_self_peer_id))
         .route("/export", get(export_trust_data))
         .route("/import", post(import_trust_data))
         .with_state(state)
@@ -234,6 +235,14 @@ async fn get_connected_peers(State(state): State<ApiState>) -> Result<Json<Vec<S
     }).await?;
 
     Ok(Json(connected_peers))
+}
+
+async fn get_self_peer_id(State(state): State<ApiState>) -> Result<Json<String>, StatusCode> {
+    let self_peer_id = execute_command(&state, |response| NodeCommand::GetSelfPeerId { 
+        response 
+    }).await?;
+
+    Ok(Json(self_peer_id))
 }
 
 async fn trigger_peer_discovery(State(state): State<ApiState>) -> Result<StatusCode, StatusCode> {
