@@ -9,8 +9,6 @@ maybe advance according to the 3 phases in the readme. create your todo lists, w
 
 Develop test driven. 
 
-Reread `*.md`. 
-
 Feel free to extensively browse for specifications online. 
 
 Let's go!
@@ -22,16 +20,23 @@ When you come to an end with your process:
 - analyze the codebase
 - continue work
 
-## parallel stuff
-when investigating, feel free to run processes with &
-remember to close them manually using their pid. 
+## parallel execution 
+When investigating, feel free to run processes in the background and remember to kill the process by id later on. 
 
 # read ./todo file
-act on todos, when done, prepend D(<comment>): 
-e.g.
+act on open todos. More recent todos are at the top of the documents. 
+
+when done, prepend D(<comment>): 
+when decided against realization, prepend C(<comment>): 
+
+e.g.: 
 - run tests
 becomes
 - D(all passing): run tests
+
+or: 
+- implement useless feature
+- C(useless): implement useless feature
 
 # style guidlines
 in css files or in .vue files in the style section, avoid pixel units. Use rem or similar. 

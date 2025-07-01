@@ -105,6 +105,34 @@ echo "Bob:     API http://localhost:$BOB_API_PORT, P2P $BOB_P2P_PORT (PID: $bob_
 echo "Charlie: API http://localhost:$CHARLIE_API_PORT, P2P $CHARLIE_P2P_PORT (PID: $charlie_pid)"
 echo ""
 
+# Ask if previous data should be cleared
+echo ""
+echo "⚠️  Previous test data may exist. Clear all peers and experiences before setup?"
+echo "This will remove all existing trusted peers and experiences from all nodes."
+read -p "Clear previous data? (y/N): " clear_data
+
+if [[ "$clear_data" =~ ^[Yy]$ ]]; then
+    echo "🧹 Clearing previous data..."
+    
+    # Clear Alice's data
+    echo "Clearing Alice's data..."
+    curl -s -X DELETE http://localhost:$ALICE_API_PORT/peers/clear 2>/dev/null || true
+    curl -s -X DELETE http://localhost:$ALICE_API_PORT/experiences/clear 2>/dev/null || true
+    
+    # Clear Bob's data  
+    echo "Clearing Bob's data..."
+    curl -s -X DELETE http://localhost:$BOB_API_PORT/peers/clear 2>/dev/null || true
+    curl -s -X DELETE http://localhost:$BOB_API_PORT/experiences/clear 2>/dev/null || true
+    
+    # Clear Charlie's data
+    echo "Clearing Charlie's data..."
+    curl -s -X DELETE http://localhost:$CHARLIE_API_PORT/peers/clear 2>/dev/null || true
+    curl -s -X DELETE http://localhost:$CHARLIE_API_PORT/experiences/clear 2>/dev/null || true
+    
+    echo "✅ Previous data cleared"
+    sleep 1
+fi
+
 # Set up peer connections for federation testing
 echo "=== Setting up peer connections ==="
 
@@ -115,37 +143,40 @@ charlie_peer_id=$(curl -s http://localhost:$CHARLIE_API_PORT/peers/self 2>/dev/n
 if [ -n "$bob_peer_id" ] && [ -n "$charlie_peer_id" ]; then
     echo "Setting up Alice's peers..."
     
-    # Alice adds Bob (quality: 0.5) and Charlie (quality: 0.25)
-    curl -s -X POST http://localhost:$ALICE_API_PORT/peers \
-        -H 'Content-Type: application/json' \
-        -d "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$BOB_P2P_PORT/p2p/$bob_peer_id\",\"name\":\"Bob\",\"recommender_quality\":0.5}" \
-        > /dev/null
+    # Function to add peer with duplicate handling
+    add_peer_safe() {
+        local api_port=$1
+        local peer_data=$2
+        local peer_name=$3
+        
+        response=$(curl -s -w "%{http_code}" -X POST http://localhost:$api_port/peers \
+            -H 'Content-Type: application/json' \
+            -d "$peer_data" 2>/dev/null)
+        
+        http_code="${response: -3}"
+        if [ "$http_code" = "409" ]; then
+            echo "  ℹ️  $peer_name already exists in peer list"
+        elif [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
+            echo "  ✅ Added $peer_name"
+        else
+            echo "  ❌ Failed to add $peer_name (HTTP $http_code)"
+        fi
+    }
     
-    curl -s -X POST http://localhost:$ALICE_API_PORT/peers \
-        -H 'Content-Type: application/json' \
-        -d "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$CHARLIE_P2P_PORT/p2p/$charlie_peer_id\",\"name\":\"Charlie\",\"recommender_quality\":0.25}" \
-        > /dev/null
+    # Alice adds Bob (quality: 0.5) and Charlie (quality: 0.25)
+    add_peer_safe $ALICE_API_PORT "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$BOB_P2P_PORT/p2p/$bob_peer_id\",\"name\":\"Bob\",\"recommender_quality\":0.5}" "Bob"
+    add_peer_safe $ALICE_API_PORT "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$CHARLIE_P2P_PORT/p2p/$charlie_peer_id\",\"name\":\"Charlie\",\"recommender_quality\":0.25}" "Charlie"
     
     echo "Setting up Bob's peers..."
     
     # Bob adds Alice (quality: 0.8) and Charlie (quality: 0.3)
-    curl -s -X POST http://localhost:$BOB_API_PORT/peers \
-        -H 'Content-Type: application/json' \
-        -d "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$ALICE_P2P_PORT/p2p/$alice_peer_id\",\"name\":\"Alice\",\"recommender_quality\":0.8}" \
-        > /dev/null
-        
-    curl -s -X POST http://localhost:$BOB_API_PORT/peers \
-        -H 'Content-Type: application/json' \
-        -d "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$CHARLIE_P2P_PORT/p2p/$charlie_peer_id\",\"name\":\"Charlie\",\"recommender_quality\":0.3}" \
-        > /dev/null
+    add_peer_safe $BOB_API_PORT "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$ALICE_P2P_PORT/p2p/$alice_peer_id\",\"name\":\"Alice\",\"recommender_quality\":0.8}" "Alice"
+    add_peer_safe $BOB_API_PORT "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$CHARLIE_P2P_PORT/p2p/$charlie_peer_id\",\"name\":\"Charlie\",\"recommender_quality\":0.3}" "Charlie"
     
     echo "Setting up Charlie's peers..."
     
     # Charlie adds Alice only (quality: 0.6)
-    curl -s -X POST http://localhost:$CHARLIE_API_PORT/peers \
-        -H 'Content-Type: application/json' \
-        -d "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$ALICE_P2P_PORT/p2p/$alice_peer_id\",\"name\":\"Alice\",\"recommender_quality\":0.6}" \
-        > /dev/null
+    add_peer_safe $CHARLIE_API_PORT "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$ALICE_P2P_PORT/p2p/$alice_peer_id\",\"name\":\"Alice\",\"recommender_quality\":0.6}" "Alice"
     
     echo "✓ Peer connections established"
     echo "  Alice ↔ Bob (0.5), Alice ↔ Charlie (0.25)"

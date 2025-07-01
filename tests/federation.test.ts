@@ -211,7 +211,7 @@ describe('Federation and Trust Propagation Tests', () => {
       const daveShallowScore = await dave.queryTrust(ethAddress, { max_depth: 1 });
       // If we get here, the node returned a score - it should have 0 data points
       expect(daveShallowScore.data_points).toBe(0);
-    } catch (error) {
+    } catch (error: any) {
       // 404 error is expected when no data is found
       expect(error.response?.status).toBe(404);
     }
@@ -350,7 +350,7 @@ describe('Federation and Trust Propagation Tests', () => {
     try {
       const scoreAfterDisconnect = await dave.queryTrust('domain:charlie-special.com', { max_depth: 1 });
       expect(scoreAfterDisconnect.data_points).toBe(0);
-    } catch (error) {
+    } catch (error: any) {
       // 404 error is expected when peer is offline and no cached data
       expect(error.response?.status).toBe(404);
       console.log('Query failed after peer disconnect (expected): 404');

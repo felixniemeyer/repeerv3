@@ -44,6 +44,13 @@ export interface WebsiteAdapter {
   injectTrustScores(scores: Map<string, TrustScore>): void;
   createExperiencePrompt(agentId: string): Promise<ExperienceData | null>;
   
+  // UI creation method (optional) - adapter can create its own UI in the provided container
+  createExperienceUI?(container: HTMLElement, agentId: string, options?: any): Promise<{
+    onSubmit: (callback: (data: ExperienceData) => void) => void;
+    onCancel: (callback: () => void) => void;
+    destroy: () => void;
+  }>;
+  
   // Lifecycle hooks (optional)
   onPageLoad?(): void;
   onPageChange?(): void;

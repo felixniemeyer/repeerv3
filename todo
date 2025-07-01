@@ -1,3 +1,6 @@
+# 01.07. 
+- contact sharing: for others to add us as trusted peers, we have to be able to send them a qr code or our libp2p id. The extension needs a tab: "me" where you can see both. our address should be click to copy. 
+
 # 29.06. 
 
 # 28.06.

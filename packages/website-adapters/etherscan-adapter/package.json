@@ -18,8 +18,8 @@
   "author": "Repeer Contributors",
   "license": "MIT",
   "dependencies": {
-    "@repeer/adapter-interface": "^0.1.0",
-    "@repeer/ethereum-domain": "^0.1.0"
+    "@repeer/adapter-interface": "file:../../adapter-interface",
+    "@repeer/ethereum-domain": "file:../../id-domains/ethereum-domain"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",

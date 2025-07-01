@@ -8,6 +8,7 @@ import {
   formatVolume
 } from '@repeer/adapter-interface';
 import { ethereumDomain } from '@repeer/ethereum-domain';
+import { createEtherscanExperienceComponent } from './createExperienceComponent';
 
 export class AdvancedEtherscanAdapter implements WebsiteAdapter {
   name = 'etherscan-advanced';
@@ -494,6 +495,47 @@ export class AdvancedEtherscanAdapter implements WebsiteAdapter {
       };
       document.addEventListener('keydown', escapeHandler);
     });
+  }
+  
+  // New UI creation method - provides component definition for external Vue app
+  async createExperienceUI(container: HTMLElement, agentId: string, options?: any): Promise<{
+    onSubmit: (callback: (data: ExperienceData) => void) => void;
+    onCancel: (callback: () => void) => void;
+    destroy: () => void;
+  }> {
+    const address = agentId.replace('ethereum:', '');
+    
+    let submitCallback: ((data: ExperienceData) => void) | null = null;
+    let cancelCallback: (() => void) | null = null;
+    
+    // Return component definition and control interface
+    const componentDef = createEtherscanExperienceComponent({
+      agentId,
+      address,
+      onSubmit: (data: ExperienceData) => {
+        if (submitCallback) submitCallback(data);
+      },
+      onCancel: () => {
+        if (cancelCallback) cancelCallback();
+      }
+    });
+    
+    // Store component definition on the container for external mounting
+    (container as any).__repeerComponentDef = componentDef;
+    
+    // Return the interface
+    return {
+      onSubmit: (callback: (data: ExperienceData) => void) => {
+        submitCallback = callback;
+      },
+      onCancel: (callback: () => void) => {
+        cancelCallback = callback;
+      },
+      destroy: () => {
+        // External app handles unmounting
+        delete (container as any).__repeerComponentDef;
+      }
+    };
   }
   
   // Lifecycle methods

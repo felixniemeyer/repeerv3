@@ -17,6 +17,8 @@ pub trait Storage: Send + Sync {
     async fn get_peers(&self) -> Result<Vec<Peer>>;
     async fn update_peer_quality(&self, peer_id: &str, quality: f64) -> Result<()>;
     async fn remove_peer(&self, peer_id: &str) -> Result<()>;
+    async fn clear_peers(&self) -> Result<()>;
+    async fn clear_experiences(&self) -> Result<()>;
     
     async fn cache_trust_score(&self, cached: CachedTrustScore) -> Result<()>;
     async fn get_cached_scores(&self, agent_id: &str) -> Result<Vec<CachedTrustScore>>;
@@ -216,6 +218,16 @@ impl Storage for SqliteStorage {
     }
 
     async fn add_peer(&self, peer: Peer) -> Result<()> {
+        // Check if peer already exists
+        let existing = sqlx::query("SELECT peer_id FROM peers WHERE peer_id = ?1")
+            .bind(&peer.peer_id)
+            .fetch_optional(&self.pool)
+            .await?;
+            
+        if existing.is_some() {
+            return Err(anyhow::anyhow!("{} is already in your list of peers", peer.name));
+        }
+        
         sqlx::query(
             r#"
             INSERT INTO peers (peer_id, name, recommender_quality, added_at)
@@ -287,6 +299,22 @@ impl Storage for SqliteStorage {
         .bind(peer_id)
         .execute(&self.pool)
         .await?;
+        
+        Ok(())
+    }
+
+    async fn clear_peers(&self) -> Result<()> {
+        sqlx::query("DELETE FROM peers")
+            .execute(&self.pool)
+            .await?;
+        
+        Ok(())
+    }
+
+    async fn clear_experiences(&self) -> Result<()> {
+        sqlx::query("DELETE FROM experiences")
+            .execute(&self.pool)
+            .await?;
         
         Ok(())
     }

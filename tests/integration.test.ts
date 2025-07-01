@@ -222,7 +222,7 @@ describe('Adapter Integration', () => {
     const alice = nodes[0].client!;
     
     // Record a positive DeFi experience
-    await alice.recordPositiveExperience(
+    await alice.recordExperience(
       'ethereum:0xabc123',
       500, // $500 invested
       600, // $600 returned

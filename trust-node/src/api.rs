@@ -43,12 +43,14 @@ pub async fn run_api_server(port: u16, command_tx: mpsc::Sender<NodeCommand>) ->
     let app = Router::new()
         .route("/health", get(health))
         .route("/experiences", post(add_experience))
+        .route("/experiences/clear", delete(clear_experiences))
         .route("/experiences/:agent_id", get(get_experiences))
         .route("/experience/:experience_id", delete(delete_experience))
         .route("/trust/:agent_id", get(query_trust))
         .route("/trust/batch", post(query_trust_batch))
         .route("/peers", get(get_peers))
         .route("/peers", post(add_peer))
+        .route("/peers/clear", delete(clear_peers))
         .route("/peers/:peer_id", delete(delete_peer))
         .route("/peers/:peer_id/quality", post(update_peer_quality))
         .route("/peers/connected", get(get_connected_peers))
@@ -190,12 +192,17 @@ async fn add_peer(
         added_at: Utc::now(),
     };
 
-    execute_command(&state, |response| NodeCommand::AddPeer {
+    match execute_command(&state, |response| NodeCommand::AddPeer {
         peer: peer.clone(),
         response,
-    }).await?;
-
-    Ok(Json(peer))
+    }).await {
+        Ok(_) => Ok(Json(peer)),
+        Err(_) => {
+            // Return a more specific error for duplicates
+            // This will be improved when we add proper error types
+            Err(StatusCode::CONFLICT)
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -290,4 +297,14 @@ async fn import_trust_data(
     }).await?;
 
     Ok(StatusCode::OK)
+}
+
+async fn clear_peers(State(state): State<ApiState>) -> Result<StatusCode, StatusCode> {
+    execute_command(&state, |response| NodeCommand::ClearPeers { response }).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn clear_experiences(State(state): State<ApiState>) -> Result<StatusCode, StatusCode> {
+    execute_command(&state, |response| NodeCommand::ClearExperiences { response }).await?;
+    Ok(StatusCode::NO_CONTENT)
 }

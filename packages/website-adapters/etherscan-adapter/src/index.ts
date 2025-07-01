@@ -1,5 +1,6 @@
 import { WebsiteAdapter, AgentDiscovery, ExperienceData, TrustScore } from '@repeer/adapter-interface';
 import { ethereumDomain } from '@repeer/ethereum-domain';
+import { AdvancedEtherscanAdapter } from './advanced-etherscan-adapter';
 
 export class EtherscanAdapter implements WebsiteAdapter {
   name = 'etherscan';
@@ -265,8 +266,7 @@ export default function createEtherscanAdapter(): WebsiteAdapter {
 // Export advanced adapter
 export { AdvancedEtherscanAdapter } from './advanced-etherscan-adapter';
 
-// Export advanced adapter factory function
+// Export advanced adapter factory function  
 export function createAdvancedEtherscanAdapter(): WebsiteAdapter {
-  const { AdvancedEtherscanAdapter } = require('./advanced-etherscan-adapter');
   return new AdvancedEtherscanAdapter();
 }

@@ -9,6 +9,7 @@ module.exports = {
   moduleNameMapper: {
     '^@repeer/adapter-interface$': '<rootDir>/../../adapter-interface/src/index.ts',
     '^@repeer/ethereum-domain$': '<rootDir>/../../id-domains/ethereum-domain/src/index.ts',
+    '^./createExperienceComponent$': '<rootDir>/src/__mocks__/createExperienceComponent.js',
   },
   collectCoverageFrom: [
     'src/**/*.ts',

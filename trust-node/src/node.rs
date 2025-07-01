@@ -75,6 +75,12 @@ pub enum NodeCommand {
     GetSelfPeerId {
         response: oneshot::Sender<Result<String>>,
     },
+    ClearPeers {
+        response: oneshot::Sender<Result<()>>,
+    },
+    ClearExperiences {
+        response: oneshot::Sender<Result<()>>,
+    },
 }
 
 pub struct TrustNode<S: Storage> {
@@ -447,6 +453,15 @@ impl<S: Storage + 'static> TrustNode<S> {
             NodeCommand::GetSelfPeerId { response } => {
                 let peer_id = self.swarm.local_peer_id().to_string();
                 let _ = response.send(Ok(peer_id));
+            }
+            NodeCommand::ClearPeers { response } => {
+                self.peers.clear();
+                let result = self.storage.clear_peers().await;
+                let _ = response.send(result);
+            }
+            NodeCommand::ClearExperiences { response } => {
+                let result = self.storage.clear_experiences().await;
+                let _ = response.send(result);
             }
         }
         Ok(())
