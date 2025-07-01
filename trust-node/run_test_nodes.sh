@@ -104,20 +104,63 @@ echo "Alice:   API http://localhost:$ALICE_API_PORT, P2P $ALICE_P2P_PORT (PID: $
 echo "Bob:     API http://localhost:$BOB_API_PORT, P2P $BOB_P2P_PORT (PID: $bob_pid)"  
 echo "Charlie: API http://localhost:$CHARLIE_API_PORT, P2P $CHARLIE_P2P_PORT (PID: $charlie_pid)"
 echo ""
-echo "To test federation:"
-echo "1. Add some peers between nodes"
-echo "2. Add trust experiences to different nodes"
-echo "3. Query trust scores and see federation in action"
+
+# Set up peer connections for federation testing
+echo "=== Setting up peer connections ==="
+
+# Get peer IDs for connection setup
+bob_peer_id=$(curl -s http://localhost:$BOB_API_PORT/peers/self 2>/dev/null | tr -d '"')
+charlie_peer_id=$(curl -s http://localhost:$CHARLIE_API_PORT/peers/self 2>/dev/null | tr -d '"')
+
+if [ -n "$bob_peer_id" ] && [ -n "$charlie_peer_id" ]; then
+    echo "Setting up Alice's peers..."
+    
+    # Alice adds Bob (quality: 0.5) and Charlie (quality: 0.25)
+    curl -s -X POST http://localhost:$ALICE_API_PORT/peers \
+        -H 'Content-Type: application/json' \
+        -d "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$BOB_P2P_PORT/p2p/$bob_peer_id\",\"name\":\"Bob\",\"recommender_quality\":0.5}" \
+        > /dev/null
+    
+    curl -s -X POST http://localhost:$ALICE_API_PORT/peers \
+        -H 'Content-Type: application/json' \
+        -d "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$CHARLIE_P2P_PORT/p2p/$charlie_peer_id\",\"name\":\"Charlie\",\"recommender_quality\":0.25}" \
+        > /dev/null
+    
+    echo "Setting up Bob's peers..."
+    
+    # Bob adds Alice (quality: 0.8) and Charlie (quality: 0.3)
+    curl -s -X POST http://localhost:$BOB_API_PORT/peers \
+        -H 'Content-Type: application/json' \
+        -d "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$ALICE_P2P_PORT/p2p/$alice_peer_id\",\"name\":\"Alice\",\"recommender_quality\":0.8}" \
+        > /dev/null
+        
+    curl -s -X POST http://localhost:$BOB_API_PORT/peers \
+        -H 'Content-Type: application/json' \
+        -d "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$CHARLIE_P2P_PORT/p2p/$charlie_peer_id\",\"name\":\"Charlie\",\"recommender_quality\":0.3}" \
+        > /dev/null
+    
+    echo "Setting up Charlie's peers..."
+    
+    # Charlie adds Alice only (quality: 0.6)
+    curl -s -X POST http://localhost:$CHARLIE_API_PORT/peers \
+        -H 'Content-Type: application/json' \
+        -d "{\"peer_id\":\"/ip4/127.0.0.1/tcp/$ALICE_P2P_PORT/p2p/$alice_peer_id\",\"name\":\"Alice\",\"recommender_quality\":0.6}" \
+        > /dev/null
+    
+    echo "✓ Peer connections established"
+    echo "  Alice ↔ Bob (0.5), Alice ↔ Charlie (0.25)"
+    echo "  Bob ↔ Alice (0.8), Bob ↔ Charlie (0.3)"  
+    echo "  Charlie ↔ Alice (0.6)"
+else
+    echo "⚠ Could not retrieve peer IDs, skipping peer setup"
+fi
+
 echo ""
-echo "Example commands:"
-echo "# Add Bob as peer to Alice:"
-echo "curl -X POST http://localhost:$ALICE_API_PORT/peers -H 'Content-Type: application/json' -d '{\"peer_id\":\"/ip4/127.0.0.1/tcp/$BOB_P2P_PORT/p2p/\$(curl -s http://localhost:$BOB_API_PORT/peers | jq -r .self_peer_id)\",\"name\":\"Bob\",\"recommender_quality\":0.8}'"
-echo ""
-echo "# Add trust experience:"
-echo "curl -X POST http://localhost:$ALICE_API_PORT/experiences -H 'Content-Type: application/json' -d '{\"agent_id\":\"ethereum:0x1234567890123456789012345678901234567890\",\"investment\":1000,\"return_value\":1100,\"timeframe_days\":30}'"
-echo ""
-echo "# Query trust score:"
-echo "curl 'http://localhost:$BOB_API_PORT/trust?agent_id=ethereum:0x1234567890123456789012345678901234567890&max_depth=3'"
+echo "=== Federation ready for testing ==="
+echo "Browser extension can connect to any node:"
+echo "  http://localhost:$ALICE_API_PORT (Alice)"
+echo "  http://localhost:$BOB_API_PORT (Bob)"
+echo "  http://localhost:$CHARLIE_API_PORT (Charlie)"
 echo ""
 echo "Press Ctrl+C to stop all nodes"
 

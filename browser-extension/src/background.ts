@@ -32,6 +32,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     
     return true;
   }
+  
+  if (message.type === 'OPEN_EXPERIENCE_PAGE') {
+    // Handle opening experience recording page
+    handleOpenExperiencePage(message.url, message.agentId)
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    
+    return true;
+  }
 });
 
 async function handleTrustScoreRequest(agentId: string) {
@@ -101,6 +110,25 @@ async function handleRecordExperience(experience: any) {
     return await response.json();
   } catch (error) {
     console.error('Failed to record experience:', error);
+    throw error;
+  }
+}
+
+async function handleOpenExperiencePage(url: string, agentId: string) {
+  try {
+    // Open a new popup window for experience recording
+    const window = await chrome.windows.create({
+      url: url,
+      type: 'popup',
+      width: 450,
+      height: 600,
+      focused: true
+    });
+    
+    console.log(`Opened experience recording window for agent: ${agentId}`);
+    return window;
+  } catch (error) {
+    console.error('Failed to open experience page:', error);
     throw error;
   }
 }

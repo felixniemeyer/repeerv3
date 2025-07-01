@@ -113,7 +113,15 @@ export class TrustClient {
 
   // Convenience methods for common use cases
   
-  async recordPositiveExperience(
+  /**
+   * Record a trust experience with any ROI value (continuous spectrum from 0.0 to 2.0+)
+   * @param agentId - The agent identifier (e.g., "ethereum:0x123...")
+   * @param investment - Amount invested ($)
+   * @param returnValue - Amount received back ($)
+   * @param timeframeDays - Duration of the experience in days
+   * @param notes - Optional description of the experience
+   */
+  async recordExperience(
     agentId: string,
     investment: number,
     returnValue: number,

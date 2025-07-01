@@ -103,18 +103,44 @@ class AdvancedEtherscanAdapter implements WebsiteAdapter {
   }
   
   injectTrustScores(scores: Map<string, TrustScore>): void {
+    // Store all scores
     scores.forEach((score, agentId) => {
       this.trustScores.set(agentId, score);
-      
-      // Find all elements for this agent ID
-      const elements = document.querySelectorAll(`[data-repeer-agent="${agentId}"]`);
-      elements.forEach(element => {
-        this.createTrustIndicator(element, agentId, score);
-      });
     });
+    
+    // Find all discovered addresses and create indicators
+    const addressSelectors = [
+      '#mainaddress',
+      '.hash-tag',
+      'a[href*="/address/"]',
+      'span[data-highlight-target]',
+      '.text-truncate a[href*="address"]',
+      'tr[id^="r_"] a[href*="/address/"]',
+      '[data-highlight-target]',
+      '.d-inline-flex.align-items-center.gap-1 span[data-highlight-target]'
+    ];
+    
+    for (const selector of addressSelectors) {
+      const elements = document.querySelectorAll(selector);
+      
+      elements.forEach(element => {
+        if (this.injectedElements.has(element)) return;
+        
+        const href = (element as HTMLAnchorElement).href || element.textContent || '';
+        const address = ethereumDomain.parseId(href);
+        
+        if (address) {
+          const agentId = ethereumDomain.formatTrustId(address);
+          const score = this.trustScores.get(agentId);
+          
+          // Create indicator for ALL addresses (with or without score data)
+          this.createTrustIndicator(element, agentId, score);
+        }
+      });
+    }
   }
   
-  private createTrustIndicator(element: Element, agentId: string, score: TrustScore): void {
+  private createTrustIndicator(element: Element, agentId: string, score?: TrustScore): void {
     if (this.injectedElements.has(element)) return;
     this.injectedElements.add(element);
     
@@ -123,19 +149,36 @@ class AdvancedEtherscanAdapter implements WebsiteAdapter {
     indicator.className = 'repeer-trust-indicator';
     indicator.setAttribute('data-agent-id', agentId);
     
-    const roi = score.expected_pv_roi;
-    const trustColor = calculateTrustColor(roi, score.total_volume);
+    let backgroundColor: string;
+    let borderStyle = '';
+    
+    if (score) {
+      // Address has trust data - use color based on ROI/volume
+      const roi = score.expected_pv_roi;
+      backgroundColor = calculateTrustColor(roi, score.total_volume);
+    } else {
+      // Address has no trust data - white background with black border and question mark
+      backgroundColor = '#ffffff';
+      borderStyle = 'border: 1px solid #333333;';
+    }
     
     indicator.style.cssText = `
       display: inline-block;
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background-color: ${trustColor};
+      background-color: ${backgroundColor};
+      ${borderStyle}
       margin-left: 4px;
       cursor: pointer;
       vertical-align: middle;
+      position: relative;
     `;
+    
+    // Add question mark for addresses without data
+    if (!score) {
+      indicator.innerHTML = '<span style="position: absolute; top: -2px; left: 2px; font-size: 6px; color: #333; font-weight: bold;">?</span>';
+    }
     
     // Add hover functionality
     indicator.addEventListener('mouseenter', () => {
@@ -146,34 +189,65 @@ class AdvancedEtherscanAdapter implements WebsiteAdapter {
       setTimeout(() => this.hideTrustBox(agentId), 300);
     });
     
+    // Add click functionality to open experience recording
+    indicator.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.openExperienceRecording(agentId);
+    });
+    
     // Insert the indicator after the element
     if (element.parentNode) {
       element.parentNode.insertBefore(indicator, element.nextSibling);
     }
   }
   
-  private showTrustBox(agentId: string, element: HTMLElement, score: TrustScore): void {
+  private showTrustBox(agentId: string, element: HTMLElement, score?: TrustScore): void {
     // Remove existing box
     this.hideTrustBox(agentId);
     
     const box = document.createElement('div');
     box.className = 'repeer-trust-box';
     
-    const roi = score.expected_pv_roi;
-    const roiPercentage = ((roi - 1) * 100).toFixed(1);
-    const trustColor = calculateTrustColor(roi, score.total_volume);
+    let content: string;
     
-    box.innerHTML = `
-      <div style="font-weight: bold; color: ${trustColor};">
-        Trust Score: ${roiPercentage}%
-      </div>
-      <div style="font-size: 12px; color: #666;">
-        Volume: $${formatVolume(score.total_volume)}
-      </div>
-      <div style="font-size: 12px; color: #666;">
-        Data points: ${score.data_points}
-      </div>
-    `;
+    if (score) {
+      // Show trust score data
+      const roi = score.expected_pv_roi;
+      const roiPercentage = ((roi - 1) * 100).toFixed(1);
+      const trustColor = calculateTrustColor(roi, score.total_volume);
+      
+      content = `
+        <div style="font-weight: bold; color: ${trustColor};">
+          Trust Score: ${roiPercentage}%
+        </div>
+        <div style="font-size: 12px; color: #666;">
+          Volume: $${formatVolume(score.total_volume)}
+        </div>
+        <div style="font-size: 12px; color: #666;">
+          Data points: ${score.data_points}
+        </div>
+        <div style="font-size: 11px; color: #999; margin-top: 4px;">
+          Click to record experience
+        </div>
+      `;
+    } else {
+      // Show "no data" message
+      const address = agentId.replace('ethereum:', '');
+      content = `
+        <div style="font-weight: bold; color: #666;">
+          No Trust Data
+        </div>
+        <div style="font-size: 12px; color: #666;">
+          Address: ${address.slice(0, 6)}...${address.slice(-4)}
+        </div>
+        <div style="font-size: 11px; color: #999; margin-top: 4px;">
+          Click to record first experience
+        </div>
+      `;
+    }
+    
+    box.innerHTML = content;
     
     box.style.cssText = `
       position: absolute;
@@ -184,7 +258,7 @@ class AdvancedEtherscanAdapter implements WebsiteAdapter {
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       z-index: 10000;
       font-size: 13px;
-      min-width: 120px;
+      min-width: 140px;
     `;
     
     // Position the box
@@ -204,28 +278,22 @@ class AdvancedEtherscanAdapter implements WebsiteAdapter {
     }
   }
   
-  async createExperiencePrompt(agentId: string): Promise<any> {
-    // Simple modal implementation
-    return new Promise((resolve) => {
-      const modal = document.createElement('div');
-      modal.innerHTML = `
-        <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;">
-          <div style="background: white; padding: 20px; border-radius: 8px; max-width: 400px;">
-            <h3>Record Trust Experience</h3>
-            <p>Address: ${agentId.replace('ethereum:', '')}</p>
-            <button onclick="this.closest('div').remove(); return false;">Cancel</button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
-      
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal.firstElementChild) {
-          modal.remove();
-          resolve(null);
-        }
-      });
+  private openExperienceRecording(agentId: string): void {
+    // Open extension experience recording page
+    const address = agentId.replace('ethereum:', '');
+    const url = chrome.runtime.getURL(`src/experience/index.html?agent=${encodeURIComponent(agentId)}&type=ethereum&address=${address}`);
+    
+    chrome.runtime.sendMessage({
+      type: 'OPEN_EXPERIENCE_PAGE',
+      url: url,
+      agentId: agentId
     });
+  }
+
+  async createExperiencePrompt(agentId: string): Promise<any> {
+    // Use the new openExperienceRecording method
+    this.openExperienceRecording(agentId);
+    return Promise.resolve(); 
   }
   
   onPageLoad(): void {

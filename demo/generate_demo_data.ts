@@ -50,7 +50,7 @@ class DemoDataGenerator {
         const roi = seller.avgRoi + (Math.random() - 0.5) * 0.3; // ±15% variance
         const returnValue = investment * roi;
         
-        await this.client.recordPositiveExperience(
+        await this.client.recordExperience(
           seller.id,
           investment,
           returnValue,
@@ -67,23 +67,13 @@ class DemoDataGenerator {
         const roi = seller.avgRoi + (Math.random() - 0.5) * 0.2;
         const returnValue = investment * roi;
         
-        if (roi < 1.0) {
-          await this.client.recordNegativeExperience(
-            seller.id,
-            investment,
-            investment - returnValue,
-            Math.floor(7 + Math.random() * 30),
-            this.generateProductNotes(seller.name, false)
-          );
-        } else {
-          await this.client.recordPositiveExperience(
-            seller.id,
-            investment,
-            returnValue,
-            Math.floor(7 + Math.random() * 30),
-            this.generateProductNotes(seller.name, true)
-          );
-        }
+        await this.client.recordExperience(
+          seller.id,
+          investment,
+          returnValue,
+          Math.floor(7 + Math.random() * 30),
+          this.generateProductNotes(seller.name, roi > 1.0)
+        );
       }
     }
 
@@ -130,23 +120,13 @@ class DemoDataGenerator {
         const roi = protocol.avgRoi + (Math.random() - 0.5) * 0.4;
         const returnValue = investment * roi;
         
-        if (roi < 1.0) {
-          await this.client.recordNegativeExperience(
-            protocol.address,
-            investment,
-            investment - returnValue,
-            Math.floor(1 + Math.random() * 90), // 1-90 days
-            this.generateDeFiNotes(protocol.name, roi < 0.5)
-          );
-        } else {
-          await this.client.recordPositiveExperience(
-            protocol.address,
-            investment,
-            returnValue,
-            Math.floor(1 + Math.random() * 90),
-            this.generateDeFiNotes(protocol.name, false)
-          );
-        }
+        await this.client.recordExperience(
+          protocol.address,
+          investment,
+          returnValue,
+          Math.floor(1 + Math.random() * 90), // 1-90 days
+          this.generateDeFiNotes(protocol.name, roi < 0.5)
+        );
       }
     }
 
@@ -176,23 +156,13 @@ class DemoDataGenerator {
         const roi = provider.avgRoi + (Math.random() - 0.5) * 0.3;
         const returnValue = investment * roi;
         
-        if (roi < 1.0) {
-          await this.client.recordNegativeExperience(
-            provider.domain,
-            investment,
-            investment - returnValue,
-            Math.floor(7 + Math.random() * 21), // 7-28 days
-            this.generateServiceNotes(provider.domain, provider.type, false)
-          );
-        } else {
-          await this.client.recordPositiveExperience(
-            provider.domain,
-            investment,
-            returnValue,
-            Math.floor(7 + Math.random() * 21),
-            this.generateServiceNotes(provider.domain, provider.type, true)
-          );
-        }
+        await this.client.recordExperience(
+          provider.domain,
+          investment,
+          returnValue,
+          Math.floor(7 + Math.random() * 21), // 7-28 days
+          this.generateServiceNotes(provider.domain, provider.type, roi > 1.0)
+        );
       }
     }
 
@@ -226,25 +196,24 @@ class DemoDataGenerator {
         const investment = 100 + Math.random() * 300;
         const isPositive = Math.random() > 0.5;
         
+        let returnValue: number;
+        let notes: string;
+        
         if (isPositive) {
-          const returnValue = investment * (1.1 + Math.random() * 0.4);
-          await this.client.recordPositiveExperience(
-            case_.id,
-            investment,
-            returnValue,
-            Math.floor(1 + Math.random() * 30),
-            `${case_.description} - Had a good experience this time`
-          );
+          returnValue = investment * (1.1 + Math.random() * 0.4);
+          notes = `${case_.description} - Had a good experience this time`;
         } else {
-          const loss = investment * (0.2 + Math.random() * 0.6);
-          await this.client.recordNegativeExperience(
-            case_.id,
-            investment,
-            loss,
-            Math.floor(1 + Math.random() * 30),
-            `${case_.description} - Lost money as expected`
-          );
+          returnValue = investment * (0.2 + Math.random() * 0.6);
+          notes = `${case_.description} - Lost money as expected`;
         }
+        
+        await this.client.recordExperience(
+          case_.id,
+          investment,
+          returnValue,
+          Math.floor(1 + Math.random() * 30),
+          notes
+        );
       }
     }
 
