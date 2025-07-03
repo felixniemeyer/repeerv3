@@ -173,8 +173,9 @@ describe('Federation and Trust Propagation Tests', () => {
     const dave = nodes[3].client!;
     
     // Alice adds a positive experience for an Ethereum address
-    const ethAddress = 'ethereum:0xdeadbeef1234567890123456789012345678dead';
+    const ethAddress = '0xdeadbeef1234567890123456789012345678dead';
     await alice.addExperience({
+      id_domain: 'ethereum',
       agent_id: ethAddress,
       investment: 1000,
       return_value: 1200,
@@ -184,7 +185,7 @@ describe('Federation and Trust Propagation Tests', () => {
     });
     
     // Alice can query her own experience
-    const aliceScore = await alice.queryTrust(ethAddress);
+    const aliceScore = await alice.queryTrust('ethereum', ethAddress);
     expect(aliceScore.expected_pv_roi).toBeGreaterThan(1.0);
     expect(aliceScore.data_points).toBe(1);
     
@@ -192,23 +193,23 @@ describe('Federation and Trust Propagation Tests', () => {
     await delay(5000);
     
     // Bob should be able to query through Alice (depth 1)
-    const bobScore = await bob.queryTrust(ethAddress, { max_depth: 1 });
+    const bobScore = await bob.queryTrust('ethereum', ethAddress, { max_depth: 1 });
     expect(bobScore.expected_pv_roi).toBeGreaterThan(1.0);
     expect(bobScore.data_points).toBe(1);
     
     // Charlie should be able to query through Bob->Alice (depth 2)
-    const charlieScore = await charlie.queryTrust(ethAddress, { max_depth: 2 });
+    const charlieScore = await charlie.queryTrust('ethereum', ethAddress, { max_depth: 2 });
     expect(charlieScore.expected_pv_roi).toBeGreaterThan(1.0);
     expect(charlieScore.data_points).toBe(1);
     
     // Dave should be able to query through Charlie->Bob->Alice (depth 3)
-    const daveScore = await dave.queryTrust(ethAddress, { max_depth: 3 });
+    const daveScore = await dave.queryTrust('ethereum', ethAddress, { max_depth: 3 });
     expect(daveScore.expected_pv_roi).toBeGreaterThan(1.0);
     expect(daveScore.data_points).toBe(1);
     
     // With depth 1, Dave shouldn't see Alice's data (should return 404)
     try {
-      const daveShallowScore = await dave.queryTrust(ethAddress, { max_depth: 1 });
+      const daveShallowScore = await dave.queryTrust('ethereum', ethAddress, { max_depth: 1 });
       // If we get here, the node returned a score - it should have 0 data points
       expect(daveShallowScore.data_points).toBe(0);
     } catch (error: any) {
@@ -222,10 +223,11 @@ describe('Federation and Trust Propagation Tests', () => {
     const bob = nodes[1].client!;
     const charlie = nodes[2].client!;
     
-    const domainAgent = 'domain:trustworthy.com';
+    const domainAgent = 'trustworthy.com';
     
     // Alice has a positive experience
     await alice.addExperience({
+      id_domain: 'domain',
       agent_id: domainAgent,
       investment: 100,
       return_value: 120,
@@ -235,6 +237,7 @@ describe('Federation and Trust Propagation Tests', () => {
     
     // Charlie has a negative experience
     await charlie.addExperience({
+      id_domain: 'domain',
       agent_id: domainAgent,
       investment: 200,
       return_value: 150,
@@ -246,7 +249,7 @@ describe('Federation and Trust Propagation Tests', () => {
     await delay(3000);
     
     // Bob queries with depth 2 to see both experiences
-    const bobAggregatedScore = await bob.queryTrust(domainAgent, { max_depth: 2 });
+    const bobAggregatedScore = await bob.queryTrust('domain', domainAgent, { max_depth: 2 });
     
     // Bob should see aggregated data from both Alice and Charlie
     expect(bobAggregatedScore.data_points).toBe(2);
@@ -263,10 +266,11 @@ describe('Federation and Trust Propagation Tests', () => {
     const alice = nodes[0].client!;
     const bob = nodes[1].client!;
     
-    const riskyAgent = 'aliexpress:risky-seller';
+    const riskyAgent = 'risky-seller';
     
     // Alice adds a very negative experience
     await alice.addExperience({
+      id_domain: 'aliexpress',
       agent_id: riskyAgent,
       investment: 500,
       return_value: 100, // Lost 80%
@@ -278,7 +282,7 @@ describe('Federation and Trust Propagation Tests', () => {
     await delay(3000);
     
     // Bob queries through Alice (who has 0.9 recommender quality)
-    const bobScore = await bob.queryTrust(riskyAgent, { 
+    const bobScore = await bob.queryTrust('aliexpress', riskyAgent, { 
       max_depth: 1,
       forget_rate: 0.0, // No time decay for this test
     });
@@ -296,11 +300,11 @@ describe('Federation and Trust Propagation Tests', () => {
     
     // Query multiple agents at once
     const batchResponse = await bob.queryTrustBatch({
-      agent_ids: [
-        'ethereum:0xdeadbeef1234567890123456789012345678dead', // From test 2
-        'domain:trustworthy.com', // From test 3
-        'aliexpress:risky-seller', // From test 4
-        'domain:unknown.com', // No data
+      agents: [
+        {id_domain: 'ethereum', agent_id: '0xdeadbeef1234567890123456789012345678dead'}, // From test 2
+        {id_domain: 'domain', agent_id: 'trustworthy.com'}, // From test 3
+        {id_domain: 'aliexpress', agent_id: 'risky-seller'}, // From test 4
+        {id_domain: 'domain', agent_id: 'unknown.com'}, // No data
       ],
       max_depth: 3,
     });
@@ -309,16 +313,16 @@ describe('Federation and Trust Propagation Tests', () => {
     expect(batchResponse.scores.length).toBeGreaterThanOrEqual(3);
     
     // Check specific agents
-    const ethScore = batchResponse.scores.find(([id]) => id.includes('ethereum'));
+    const ethScore = batchResponse.scores.find(s => s.id_domain === 'ethereum');
     expect(ethScore).toBeDefined();
-    expect(ethScore![1].expected_pv_roi).toBeGreaterThan(1.0);
+    expect(ethScore!.score.expected_pv_roi).toBeGreaterThan(1.0);
     
-    const domainScore = batchResponse.scores.find(([id]) => id.includes('trustworthy'));
+    const domainScore = batchResponse.scores.find(s => s.agent_id === 'trustworthy.com');
     expect(domainScore).toBeDefined();
     
-    const riskyScore = batchResponse.scores.find(([id]) => id.includes('risky-seller'));
+    const riskyScore = batchResponse.scores.find(s => s.agent_id === 'risky-seller');
     expect(riskyScore).toBeDefined();
-    expect(riskyScore![1].expected_pv_roi).toBeLessThan(0.3);
+    expect(riskyScore!.score.expected_pv_roi).toBeLessThan(0.3);
   });
 
   test('Network handles peer disconnections gracefully', async () => {

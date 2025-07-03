@@ -84,6 +84,7 @@ async fn test_volume_weighted_calculations() {
 
     // Query trust score using the same timestamp
     let result = query_engine.calculate_trust_score(
+        "test",
         "target", 
         timestamp, 
         0.1

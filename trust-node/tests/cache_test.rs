@@ -31,7 +31,7 @@ async fn test_trust_score_caching() {
     storage.cache_trust_score(cached_score.clone()).await.unwrap();
 
     // Retrieve cached scores
-    let retrieved = storage.get_cached_scores(agent_id).await.unwrap();
+    let retrieved = storage.get_cached_scores("test", agent_id).await.unwrap();
     
     assert_eq!(retrieved.len(), 1);
     assert_eq!(retrieved[0].agent_id, agent_id);
@@ -65,7 +65,7 @@ async fn test_multiple_peer_caching() {
     }
 
     // Retrieve all cached scores for the agent
-    let retrieved = storage.get_cached_scores(agent_id).await.unwrap();
+    let retrieved = storage.get_cached_scores("test", agent_id).await.unwrap();
     
     assert_eq!(retrieved.len(), 3);
     
@@ -118,7 +118,7 @@ async fn test_cache_update() {
     storage.cache_trust_score(updated_score).await.unwrap();
 
     // Should only have one score (updated)
-    let retrieved = storage.get_cached_scores(agent_id).await.unwrap();
+    let retrieved = storage.get_cached_scores("test", agent_id).await.unwrap();
     
     assert_eq!(retrieved.len(), 1);
     assert_eq!(retrieved[0].score.expected_pv_roi, 1.5);

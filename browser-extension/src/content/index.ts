@@ -98,10 +98,8 @@ class ModernTrustScoreInjector {
       // Batch request trust scores
       const trustScores = await this.fetchTrustScores(agentIds)
 
-      // Inject trust scores using the adapters
-      if (trustScores.size > 0) {
-        await adapterRegistry.injectTrustScores(trustScores)
-      }
+      // Always inject trust scores using the adapters (even if empty to show "unknown" badges)
+      await adapterRegistry.injectTrustScores(trustScores)
 
     } catch (error) {
       console.error('Error scanning and injecting scores:', error)

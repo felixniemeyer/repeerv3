@@ -218,7 +218,7 @@ describe('Adapter Integration', () => {
     const etherscanUrl = 'https://etherscan.io/address/0xA0b86a33E6411C28B7fF24C13D3bE9b8e8e3c673';
     
     // In a real browser extension, this would be parsed automatically
-    const experiences = await alice.getExperiences('ethereum:0xa0b86a33e6411c28b7ff24c13d3be9b8e8e3c673');
+    const experiences = await alice.getExperiences('ethereum', '0xa0b86a33e6411c28b7ff24c13d3be9b8e8e3c673');
     expect(Array.isArray(experiences)).toBe(true);
   });
 
@@ -227,14 +227,15 @@ describe('Adapter Integration', () => {
     
     // Record a positive DeFi experience
     await alice.recordExperience(
-      'ethereum:0xabc123',
+      'ethereum',
+      '0xabc123',
       500, // $500 invested
       600, // $600 returned
       7,   // 1 week timeframe
       'Successful yield farming'
     );
     
-    const score = await alice.getTrustLevel('ethereum:0xabc123');
+    const score = await alice.getTrustLevel('ethereum', '0xabc123');
     const expectedProfit = alice.calculateExpectedProfit(score, 1000);
     const isTrustworthy = alice.isTrustworthy(score, 400); // Need at least $400 volume
     

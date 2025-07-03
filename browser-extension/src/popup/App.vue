@@ -549,6 +549,12 @@ const testConnection = async () => {
   // Set connecting state immediately
   connectionState.value = 'connecting'
   
+  // Clear previous node state when switching nodes
+  peers.value = []
+  peerInfo.value = null
+  currentScore.value = null
+  recentScores.value = []
+  
   try {
     // Test the new endpoint
     client = new TrustClient(settings.value.apiEndpoint)

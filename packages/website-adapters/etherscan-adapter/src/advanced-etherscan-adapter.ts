@@ -401,7 +401,6 @@ export class AdvancedEtherscanAdapter implements WebsiteAdapter {
     badge.setAttribute('data-agent-id', agentId);
     
     const roi = score.expected_pv_roi;
-    const roiClass = roi > 1.1 ? 'positive' : roi < 0.9 ? 'negative' : 'neutral';
     const roiPercentage = ((roi - 1) * 100).toFixed(1);
     const roiSign = roi >= 1 ? '+' : '';
     
