@@ -44,9 +44,9 @@ pub async fn run_api_server(port: u16, command_tx: mpsc::Sender<NodeCommand>) ->
         .route("/health", get(health))
         .route("/experiences", post(add_experience))
         .route("/experiences/clear", delete(clear_experiences))
-        .route("/experiences/:agent_id", get(get_experiences))
+        .route("/experiences/:id_domain/:agent_id", get(get_experiences))
         .route("/experience/:experience_id", delete(delete_experience))
-        .route("/trust/:agent_id", get(query_trust))
+        .route("/trust/:id_domain/:agent_id", get(query_trust))
         .route("/trust/batch", post(query_trust_batch))
         .route("/peers", get(get_peers))
         .route("/peers", post(add_peer))
@@ -76,6 +76,7 @@ async fn health() -> &'static str {
 
 #[derive(Deserialize)]
 pub struct AddExperienceRequest {
+    pub id_domain: String,
     pub agent_id: String,
     pub investment: f64,
     pub return_value: f64,
@@ -95,6 +96,7 @@ async fn add_experience(
 
     let experience = TrustExperience {
         id: Uuid::new_v4(),
+        id_domain: req.id_domain,
         agent_id: req.agent_id,
         pv_roi,
         invested_volume: req.investment,
@@ -113,9 +115,10 @@ async fn add_experience(
 
 async fn get_experiences(
     State(state): State<ApiState>,
-    Path(agent_id): Path<String>,
+    Path((id_domain, agent_id)): Path<(String, String)>,
 ) -> Result<Json<Vec<TrustExperience>>, StatusCode> {
     let experiences = execute_command(&state, |response| NodeCommand::GetExperiences { 
+        id_domain,
         agent_id, 
         response 
     }).await?;
@@ -131,11 +134,11 @@ pub struct TrustQueryParams {
 
 async fn query_trust(
     State(state): State<ApiState>,
-    Path(agent_id): Path<String>,
+    Path((id_domain, agent_id)): Path<(String, String)>,
     Query(params): Query<TrustQueryParams>,
 ) -> Result<Json<TrustScore>, StatusCode> {
     let query = TrustQuery {
-        agent_ids: vec![agent_id.clone()],
+        agents: vec![crate::types::AgentIdentifier::new(id_domain.clone(), agent_id.clone())],
         max_depth: params.max_depth.unwrap_or(3),
         point_in_time: Some(Utc::now()),
         forget_rate: Some(params.forget_rate.unwrap_or(0.0)),
@@ -149,8 +152,8 @@ async fn query_trust(
     response
         .scores
         .into_iter()
-        .find(|(id, _)| id == &agent_id)
-        .map(|(_, score)| Json(score))
+        .find(|agent_score| agent_score.id_domain == id_domain && agent_score.agent_id == agent_id)
+        .map(|agent_score| Json(agent_score.score))
         .ok_or(StatusCode::NOT_FOUND)
 }
 

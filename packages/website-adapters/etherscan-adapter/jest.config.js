@@ -5,12 +5,10 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   transform: {
     '^.+\\.ts$': 'ts-jest',
-    '^.+\\.vue$': '@vue/vue3-jest',
   },
   moduleNameMapper: {
     '^@repeer/adapter-interface$': '<rootDir>/../../adapter-interface/src/index.ts',
     '^@repeer/ethereum-domain$': '<rootDir>/../../id-domains/ethereum-domain/src/index.ts',
-    '^@repeer/trust-client$': '<rootDir>/../../../trust-client/src/index.ts',
   },
   collectCoverageFrom: [
     'src/**/*.ts',

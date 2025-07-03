@@ -40,8 +40,8 @@ export class TrustClient {
     return response.data;
   }
 
-  async getExperiences(agentId: string): Promise<TrustExperience[]> {
-    const response = await this.client.get<TrustExperience[]>(`/experiences/${agentId}`);
+  async getExperiences(idDomain: string, agentId: string): Promise<TrustExperience[]> {
+    const response = await this.client.get<TrustExperience[]>(`/experiences/${idDomain}/${agentId}`);
     return response.data;
   }
 
@@ -49,8 +49,8 @@ export class TrustClient {
     await this.client.delete(`/experiences/${experienceId}`);
   }
 
-  async queryTrust(agentId: string, params?: TrustQueryParams): Promise<TrustScore> {
-    const response = await this.client.get<TrustScore>(`/trust/${agentId}`, { params });
+  async queryTrust(idDomain: string, agentId: string, params?: TrustQueryParams): Promise<TrustScore> {
+    const response = await this.client.get<TrustScore>(`/trust/${idDomain}/${agentId}`, { params });
     return response.data;
   }
 
@@ -115,30 +115,36 @@ export class TrustClient {
   
   /**
    * Record a trust experience with any ROI value (continuous spectrum from 0.0 to 2.0+)
-   * @param agentId - The agent identifier (e.g., "ethereum:0x123...")
+   * @param idDomain - The ID domain (e.g., "ethereum", "aliexpress")
+   * @param agentId - The agent identifier (e.g., "0x123...")
    * @param investment - Amount invested ($)
    * @param returnValue - Amount received back ($)
    * @param timeframeDays - Duration of the experience in days
    * @param notes - Optional description of the experience
+   * @param data - Optional adapter-specific data
    */
   async recordExperience(
+    idDomain: string,
     agentId: string,
     investment: number,
     returnValue: number,
     timeframeDays: number = 1,
-    notes?: string
+    notes?: string,
+    data?: any
   ): Promise<TrustExperience> {
     return this.addExperience({
+      id_domain: idDomain,
       agent_id: agentId,
       investment,
       return_value: returnValue,
       timeframe_days: timeframeDays,
       notes,
+      data,
     });
   }
 
-  async getTrustLevel(agentId: string, maxDepth: number = 3): Promise<TrustScore> {
-    return this.queryTrust(agentId, { max_depth: maxDepth });
+  async getTrustLevel(idDomain: string, agentId: string, maxDepth: number = 3): Promise<TrustScore> {
+    return this.queryTrust(idDomain, agentId, { max_depth: maxDepth });
   }
 
   async addTrustedPeer(peerId: string, name: string, quality: number = 0.8): Promise<Peer> {
@@ -166,4 +172,5 @@ export class TrustClient {
   isTrustworthy(score: TrustScore, minVolume: number = 100, minRoi: number = 1.0): boolean {
     return score.total_volume >= minVolume && score.expected_pv_roi >= minRoi;
   }
+
 }

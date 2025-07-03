@@ -15,6 +15,17 @@ BOB_P2P_PORT=9016
 CHARLIE_API_PORT=8082
 CHARLIE_P2P_PORT=9017
 
+# Ask if previous data should be cleared BEFORE starting nodes
+echo "⚠️  Previous test data may exist. Clear all data before starting nodes?"
+echo "This will remove all existing databases and start with a clean slate."
+read -p "Clear previous data? (y/N): " clear_data
+
+if [[ "$clear_data" =~ ^[Yy]$ ]]; then
+    echo "🧹 Clearing previous test data..."
+    rm -rf ./test_data
+    echo "✅ Previous data cleared"
+fi
+
 # Build first
 echo "Building trust-node..."
 cargo build --release
@@ -104,34 +115,6 @@ echo "Alice:   API http://localhost:$ALICE_API_PORT, P2P $ALICE_P2P_PORT (PID: $
 echo "Bob:     API http://localhost:$BOB_API_PORT, P2P $BOB_P2P_PORT (PID: $bob_pid)"  
 echo "Charlie: API http://localhost:$CHARLIE_API_PORT, P2P $CHARLIE_P2P_PORT (PID: $charlie_pid)"
 echo ""
-
-# Ask if previous data should be cleared
-echo ""
-echo "⚠️  Previous test data may exist. Clear all peers and experiences before setup?"
-echo "This will remove all existing trusted peers and experiences from all nodes."
-read -p "Clear previous data? (y/N): " clear_data
-
-if [[ "$clear_data" =~ ^[Yy]$ ]]; then
-    echo "🧹 Clearing previous data..."
-    
-    # Clear Alice's data
-    echo "Clearing Alice's data..."
-    curl -s -X DELETE http://localhost:$ALICE_API_PORT/peers/clear 2>/dev/null || true
-    curl -s -X DELETE http://localhost:$ALICE_API_PORT/experiences/clear 2>/dev/null || true
-    
-    # Clear Bob's data  
-    echo "Clearing Bob's data..."
-    curl -s -X DELETE http://localhost:$BOB_API_PORT/peers/clear 2>/dev/null || true
-    curl -s -X DELETE http://localhost:$BOB_API_PORT/experiences/clear 2>/dev/null || true
-    
-    # Clear Charlie's data
-    echo "Clearing Charlie's data..."
-    curl -s -X DELETE http://localhost:$CHARLIE_API_PORT/peers/clear 2>/dev/null || true
-    curl -s -X DELETE http://localhost:$CHARLIE_API_PORT/experiences/clear 2>/dev/null || true
-    
-    echo "✅ Previous data cleared"
-    sleep 1
-fi
 
 # Set up peer connections for federation testing
 echo "=== Setting up peer connections ==="

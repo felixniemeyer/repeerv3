@@ -17,6 +17,7 @@ async fn test_storage_operations() {
     // Test adding and retrieving experiences
     let experience = TrustExperience {
         id: Uuid::new_v4(),
+        id_domain: "test".to_string(),
         agent_id: "test_agent".to_string(),
         pv_roi: 0.8,
         invested_volume: 100.0,
@@ -26,7 +27,7 @@ async fn test_storage_operations() {
     };
 
     storage.add_experience(experience.clone()).await.unwrap();
-    let retrieved = storage.get_experiences("test_agent").await.unwrap();
+    let retrieved = storage.get_experiences("test", "test_agent").await.unwrap();
     
     assert_eq!(retrieved.len(), 1);
     assert_eq!(retrieved[0].agent_id, experience.agent_id);
@@ -47,6 +48,7 @@ async fn test_volume_weighted_calculations() {
     let experiences = vec![
         TrustExperience {
             id: Uuid::new_v4(),
+            id_domain: "test".to_string(),
             agent_id: "target".to_string(),
             pv_roi: 0.5,
             invested_volume: 50.0,
@@ -56,6 +58,7 @@ async fn test_volume_weighted_calculations() {
         },
         TrustExperience {
             id: Uuid::new_v4(),
+            id_domain: "test".to_string(),
             agent_id: "target".to_string(),
             pv_roi: 0.9,
             invested_volume: 150.0,
@@ -65,6 +68,7 @@ async fn test_volume_weighted_calculations() {
         },
         TrustExperience {
             id: Uuid::new_v4(),
+            id_domain: "test".to_string(),
             agent_id: "target".to_string(),
             pv_roi: 0.3,
             invested_volume: 100.0,

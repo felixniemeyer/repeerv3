@@ -41,3 +41,6 @@ or:
 # style guidlines
 in css files or in .vue files in the style section, avoid pixel units. Use rem or similar. 
 Always use a dark theme. 
+
+# test
+always run tests, if something breaks, analyze the code and the test and fix the situation

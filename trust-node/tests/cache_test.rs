@@ -16,6 +16,7 @@ async fn test_trust_score_caching() {
     
     // Create a cached trust score
     let cached_score = CachedTrustScore {
+        id_domain: "test".to_string(),
         agent_id: agent_id.to_string(),
         score: TrustScore {
             expected_pv_roi: 1.2,
@@ -50,6 +51,7 @@ async fn test_multiple_peer_caching() {
     // Cache scores from multiple peers
     for i in 0..3 {
         let cached_score = CachedTrustScore {
+            id_domain: "test".to_string(),
             agent_id: agent_id.to_string(),
             score: TrustScore {
                 expected_pv_roi: 1.0 + (i as f64 * 0.1),
@@ -89,6 +91,7 @@ async fn test_cache_update() {
     
     // Cache initial score
     let initial_score = CachedTrustScore {
+        id_domain: "test".to_string(),
         agent_id: agent_id.to_string(),
         score: TrustScore {
             expected_pv_roi: 1.0,
@@ -102,6 +105,7 @@ async fn test_cache_update() {
 
     // Update with new score from same peer
     let updated_score = CachedTrustScore {
+        id_domain: "test".to_string(),
         agent_id: agent_id.to_string(),
         score: TrustScore {
             expected_pv_roi: 1.5,

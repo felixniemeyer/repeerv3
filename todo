@@ -1,22 +1,35 @@
-# 01.07. 
-- contact sharing: for others to add us as trusted peers, we have to be able to send them a qr code or our libp2p id. The extension needs a tab: "me" where you can see both. our address should be click to copy. 
+# 03.07. 
+- D(fixed compilation error in node.rs with to_legacy() call): trust-node does not build, fix that
+
+- D(implemented always-visible trust badges and unknown score indicators): still no scores injected on etherscan
+  - remember to also show if we don't know a score
+  - always show, not just on hover
+- D(reviewed all API endpoints and indices - all properly using split format): after splitting agent_id into id_domain and agent_id, there might be some places left where we need to fix it. Also... do we have proper indices in place in the migrations? 
+
+- D(added Contact tab with peer ID display, QR code placeholder, and copy functionality): contact sharing: for others to add us as trusted peers, we have to be able to send them a qr code or our libp2p id. The extension needs a tab: "me" where you can see both. our address should be click to copy. 
+
+- D(notes field already implemented in experience-review page): on the experience confirmation extension page, the user should have a chance to write a note. 
+
+- D(from_peer is essential for federated trust network - tracks which peer provided the score): what's the difference of from_peer and agent_id in cached_scores? Seems like we can remove from_peer if I'm not overlooking sth.
+
+- D(data field already implemented in migration, types, and storage layer): add a data field to experiences table that can be used by adapters to store any information (e.g. link to purchase, link to transaction, etc.) in json format
 
 # 29.06. 
 
 # 28.06.
 - D(manifest.firefox.json has background.scripts configured): When adding the browser-extension/dist to firefox, we get this error:  "There was an error during the temporary add-on installation. Error details: background.service_worker is currently disabled. Add background.scripts."
-- add a data field to experiences table that can be used by adapters to store any information (e.g. link to purchase, link to transaction, etc.) in json format
-- what's the difference of from_peer and agent_id in cached_scores? Seems like we can remove from_peer if I'm not overlooking sth.
+
 - D(implemented in permissions.ts with modal prompts and settings UI): I have a security concern: adapters might maliciously create experiences
   - maybe we need some kind of permission system
   - or, maybe the extension will always prompt if a experience may be created
     - and you can allow creation for a specific agent-domain/platform from a specific adapter by default
       , a checkbox "always allow experience creations by adapter x for agents on platform y"
     - add this to the readme.md
-- there is so much code duplication in api.rs! explain why this is acceptable or change it
+
+- D(deduplicated): there is so much code duplication in api.rs! explain why this is acceptable or change it
 
 - D(comprehensive pseudocode in PSEUDOCODE.md): can you please create a minimal pseudocode translation of the whole rust application for me? 
 
-- removed the recordNegativeExperience. negative and positive experiences don't differ in their signature. if the ROI is > 1 it's positive. But we don't have to distinguish explicitly. 
+- D(removed the recordNegativeExperience): negative and positive experiences don't differ in their signature. if the ROI is > 1 it's positive. But we don't have to distinguish explicitly. 
 
 - D(warnings are for unused public methods which is acceptable for future extensibility): try to fix any warnings in cargo build / rustc - wherever reasonable

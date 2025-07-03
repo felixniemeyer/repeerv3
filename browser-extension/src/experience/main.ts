@@ -132,8 +132,14 @@ class ExperienceRecorder {
     submitBtn.textContent = 'Recording...';
 
     try {
+      // Parse agent ID from URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const idDomain = urlParams.get('idDomain') || this.agentType || 'ethereum';
+      const agentIdPart = urlParams.get('agentId') || this.agentId;
+      
       const experienceData: ExperienceData = {
-        agent_id: this.agentId,
+        id_domain: idDomain,
+        agent_id: agentIdPart,
         investment,
         return_value: returnValue,
         timeframe_days: timeframeDays,

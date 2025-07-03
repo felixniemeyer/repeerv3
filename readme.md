@@ -227,6 +227,15 @@ Maybe use vite or rather crxjs.dev. https://crxjs.dev/vite-plugin
     └── integration.rs       # End-to-end scenarios
 ```
 
+The extension provides functions that can be called from the adapter scripts in order to create experiences. The extension kind of guards by asking user for confirmation similarly to confirming transactions or signatures in metamask. 
+
+functions: 
+- enter_experience(pv-ROI, volume, data): this will make the extension open a page where the user can review the experience, optionally enter a noteand confirm the creation of that experience. 
+- show_agent_details(domain_id, agent_id): makes the extension show 
+  A) form to manually enter an experience 
+  B) the composition of the score (own experiences, recommendations) 
+  C) a list of all personal experiences with some agent.
+
 ### libp2p Protocols
 trust-query: 
 - list of agent-ids to get trust score for

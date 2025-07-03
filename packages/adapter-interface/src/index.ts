@@ -14,6 +14,7 @@ export interface AgentDiscovery {
 
 // Experience data for creation
 export interface ExperienceData {
+  id_domain: string;
   agent_id: string;
   investment: number;
   return_value: number;

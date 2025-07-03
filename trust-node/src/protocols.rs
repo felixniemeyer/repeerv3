@@ -104,20 +104,20 @@ pub fn merge_responses(responses: Vec<TrustResponseInternal>) -> TrustResponse {
     use chrono::Utc;
     use std::collections::HashMap;
     
-    let mut merged_scores: HashMap<String, Vec<(String, TrustScore)>> = HashMap::new();
+    let mut merged_scores: HashMap<(String, String), Vec<(String, TrustScore)>> = HashMap::new();
     
     for resp in responses {
-        for (agent_id, score) in resp.response.scores {
+        for agent_score in resp.response.scores {
             merged_scores
-                .entry(agent_id)
+                .entry((agent_score.id_domain.clone(), agent_score.agent_id.clone()))
                 .or_default()
-                .push((resp.peer_id.clone(), score));
+                .push((resp.peer_id.clone(), agent_score.score));
         }
     }
     
-    let final_scores: Vec<(String, TrustScore)> = merged_scores
+    let final_scores: Vec<crate::types::AgentScore> = merged_scores
         .into_iter()
-        .map(|(agent_id, scores)| {
+        .map(|((id_domain, agent_id), scores)| {
             let total_weight: f64 = scores.iter().map(|(_, s)| s.total_volume).sum();
             let weighted_roi: f64 = scores
                 .iter()
@@ -126,13 +126,14 @@ pub fn merge_responses(responses: Vec<TrustResponseInternal>) -> TrustResponse {
                 / total_weight.max(1.0);
             let data_points: usize = scores.iter().map(|(_, s)| s.data_points).sum();
             
-            (
+            crate::types::AgentScore::new(
+                id_domain,
                 agent_id,
                 TrustScore {
                     expected_pv_roi: weighted_roi,
                     total_volume: total_weight,
                     data_points,
-                },
+                }
             )
         })
         .collect();

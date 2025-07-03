@@ -31,6 +31,7 @@ pub enum NodeCommand {
         response: oneshot::Sender<Result<()>>,
     },
     GetExperiences {
+        id_domain: String,
         agent_id: String,
         response: oneshot::Sender<Result<Vec<TrustExperience>>>,
     },
@@ -295,11 +296,15 @@ impl<S: Storage + 'static> TrustNode<S> {
         let point_in_time = query.point_in_time.unwrap_or_else(Utc::now);
         let forget_rate = query.forget_rate.unwrap_or(0.0);
 
-        for agent_id in &query.agent_ids {
+        for agent in &query.agents {
             let score = self.query_engine
-                .calculate_trust_score(agent_id, point_in_time, forget_rate)
+                .calculate_trust_score(&agent.id_domain, &agent.agent_id, point_in_time, forget_rate)
                 .await?;
-            scores.push((agent_id.clone(), score));
+            scores.push(crate::types::AgentScore::new(
+                agent.id_domain.clone(),
+                agent.agent_id.clone(),
+                score
+            ));
         }
 
         let response = TrustResponse {
@@ -318,10 +323,11 @@ impl<S: Storage + 'static> TrustNode<S> {
 
     async fn handle_trust_response(&mut self, request_id: request_response::OutboundRequestId, peer: PeerId, response: TrustResponse) -> Result<()> {
         // Cache the received trust scores from this peer
-        for (agent_id, score) in &response.scores {
+        for agent_score in &response.scores {
             let cached = crate::types::CachedTrustScore {
-                agent_id: agent_id.clone(),
-                score: score.clone(),
+                id_domain: agent_score.id_domain.clone(),
+                agent_id: agent_score.agent_id.clone(),
+                score: agent_score.score.clone(),
                 from_peer: peer.to_string(),
                 cached_at: Utc::now(),
             };
@@ -374,8 +380,8 @@ impl<S: Storage + 'static> TrustNode<S> {
                 let result = self.storage.add_experience(experience).await;
                 let _ = response.send(result);
             }
-            NodeCommand::GetExperiences { agent_id, response } => {
-                let result = self.storage.get_experiences(&agent_id).await;
+            NodeCommand::GetExperiences { id_domain, agent_id, response } => {
+                let result = self.storage.get_experiences(&id_domain, &agent_id).await;
                 let _ = response.send(result);
             }
             NodeCommand::RemoveExperience { experience_id, response } => {
@@ -472,17 +478,17 @@ impl<S: Storage + 'static> TrustNode<S> {
         let forget_rate = query.forget_rate.unwrap_or(0.0);
         let max_depth = query.max_depth;
 
-        let mut all_scores: HashMap<String, Vec<(String, TrustScore, f64)>> = HashMap::new();
+        let mut all_scores: HashMap<(String, String), Vec<(String, TrustScore, f64)>> = HashMap::new();
 
         // Get personal scores
-        for agent_id in &query.agent_ids {
+        for agent in &query.agents {
             let personal_score = self.query_engine
-                .calculate_trust_score(agent_id, point_in_time, forget_rate)
+                .calculate_trust_score(&agent.id_domain, &agent.agent_id, point_in_time, forget_rate)
                 .await?;
             
             if personal_score.total_volume > 0.0 {
                 all_scores
-                    .entry(agent_id.clone())
+                    .entry((agent.id_domain.clone(), agent.agent_id.clone()))
                     .or_default()
                     .push(("self".to_string(), personal_score, 1.0));
             }
@@ -494,8 +500,8 @@ impl<S: Storage + 'static> TrustNode<S> {
             let mut request_ids = Vec::new();
 
             // First, check for cached scores from peers
-            for agent_id in &query.agent_ids {
-                if let Ok(cached_scores) = self.storage.get_cached_scores(agent_id).await {
+            for agent in &query.agents {
+                if let Ok(cached_scores) = self.storage.get_cached_scores(&agent.id_domain, &agent.agent_id).await {
                     for cached in cached_scores {
                         // Find the peer's recommender quality
                         if let Some(peer) = self.peers.values().find(|p| p.peer_id == cached.from_peer) {
@@ -504,7 +510,7 @@ impl<S: Storage + 'static> TrustNode<S> {
                             let age_factor = 1.0 / (1.0 + age_seconds / 86400.0); // Decay over days
                             
                             all_scores
-                                .entry(agent_id.clone())
+                                .entry((agent.id_domain.clone(), agent.agent_id.clone()))
                                 .or_default()
                                 .push((cached.from_peer, cached.score, peer.recommender_quality * age_factor));
                         }
@@ -521,7 +527,7 @@ impl<S: Storage + 'static> TrustNode<S> {
                             // Only query if peer is connected
                             if self.swarm.is_connected(&peer_id) {
                                 let peer_query = TrustQuery {
-                                    agent_ids: query.agent_ids.clone(),
+                                    agents: query.agents.clone(),
                                     max_depth: max_depth.saturating_sub(1),
                                     point_in_time: Some(point_in_time),
                                     forget_rate: Some(forget_rate),
@@ -558,11 +564,11 @@ impl<S: Storage + 'static> TrustNode<S> {
         }
 
         // No peers to query or depth is 0, return personal scores
-        let final_scores: Vec<(String, TrustScore)> = all_scores
+        let final_scores: Vec<crate::types::AgentScore> = all_scores
             .into_iter()
-            .map(|(agent_id, scores)| {
+            .map(|((id_domain, agent_id), scores)| {
                 let combined = self.combine_scores_sync(scores);
-                (agent_id, combined)
+                crate::types::AgentScore::new(id_domain, agent_id, combined)
             })
             .collect();
 
@@ -687,7 +693,7 @@ impl<S: Storage + 'static> TrustNode<S> {
 
         // Import experiences
         for experience in data.experiences {
-            if overwrite || self.storage.get_experiences(&experience.agent_id).await?.is_empty() {
+            if overwrite || self.storage.get_experiences(&experience.id_domain, &experience.agent_id).await?.is_empty() {
                 self.storage.add_experience(experience).await?;
             }
         }

@@ -327,7 +327,8 @@ describe('Federation and Trust Propagation Tests', () => {
     
     // Add an experience through Charlie
     await charlie.client!.addExperience({
-      agent_id: 'domain:charlie-special.com',
+      id_domain: 'domain',
+      agent_id: 'charlie-special.com',
       investment: 300,
       return_value: 400,
       timeframe_days: 14,
@@ -338,7 +339,7 @@ describe('Federation and Trust Propagation Tests', () => {
     await delay(3000);
     
     // Dave can see it through Charlie
-    const scoreBeforeDisconnect = await dave.queryTrust('domain:charlie-special.com', { max_depth: 1 });
+    const scoreBeforeDisconnect = await dave.queryTrust('domain', 'charlie-special.com', { max_depth: 1 });
     expect(scoreBeforeDisconnect.data_points).toBe(1);
     
     // Disconnect Charlie
@@ -348,7 +349,7 @@ describe('Federation and Trust Propagation Tests', () => {
     
     // Dave should no longer see Charlie's data with depth 1
     try {
-      const scoreAfterDisconnect = await dave.queryTrust('domain:charlie-special.com', { max_depth: 1 });
+      const scoreAfterDisconnect = await dave.queryTrust('domain', 'charlie-special.com', { max_depth: 1 });
       expect(scoreAfterDisconnect.data_points).toBe(0);
     } catch (error: any) {
       // 404 error is expected when peer is offline and no cached data

@@ -5,6 +5,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustExperience {
     pub id: Uuid,
+    pub id_domain: String,
     pub agent_id: String,
     pub pv_roi: f64,
     pub invested_volume: f64,
@@ -30,30 +31,44 @@ pub struct Peer {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustQuery {
-    pub agent_ids: Vec<String>,
+    pub agents: Vec<AgentIdentifier>,
     pub max_depth: u8,
     pub point_in_time: Option<DateTime<Utc>>,
     pub forget_rate: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentIdentifier {
+    pub id_domain: String,
+    pub agent_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustResponse {
-    pub scores: Vec<(String, TrustScore)>,
+    pub scores: Vec<AgentScore>,
     pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentScore {
+    pub id_domain: String,
+    pub agent_id: String,
+    pub score: TrustScore,
 }
 
 /// Cached trust score from a peer's recommendation
 /// 
 /// The key distinction between fields:
-/// - `agent_id`: The entity being evaluated (e.g., "ethereum:0x123", "aliexpress:product456")
+/// - `id_domain` + `agent_id`: The entity being evaluated (e.g., domain="ethereum", agent_id="0x123")
 /// - `from_peer`: The peer who provided this trust score (e.g., PeerId of the recommending node)
 /// 
-/// Example: Alice (from_peer) recommends trust score for Bob's Ethereum address (agent_id)
+/// Example: Alice (from_peer) recommends trust score for Bob's Ethereum address (id_domain="ethereum", agent_id="0x123")
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CachedTrustScore {
-    pub agent_id: String,      // The entity being evaluated
-    pub score: TrustScore,     // The trust score for this agent
-    pub from_peer: String,     // The peer who provided this recommendation
+    pub id_domain: String,    // The domain of the entity being evaluated
+    pub agent_id: String,     // The agent identifier within that domain
+    pub score: TrustScore,    // The trust score for this agent
+    pub from_peer: String,    // The peer who provided this recommendation
     pub cached_at: DateTime<Utc>, // When this score was cached
 }
 
@@ -90,6 +105,26 @@ impl TrustDataExport {
             exported_at: Utc::now(),
             experiences,
             peers,
+        }
+    }
+}
+
+impl AgentIdentifier {
+    pub fn new(id_domain: impl Into<String>, agent_id: impl Into<String>) -> Self {
+        Self {
+            id_domain: id_domain.into(),
+            agent_id: agent_id.into(),
+        }
+    }
+
+}
+
+impl AgentScore {
+    pub fn new(id_domain: impl Into<String>, agent_id: impl Into<String>, score: TrustScore) -> Self {
+        Self {
+            id_domain: id_domain.into(),
+            agent_id: agent_id.into(),
+            score,
         }
     }
 }

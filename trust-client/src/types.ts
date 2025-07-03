@@ -1,5 +1,6 @@
 export interface TrustExperience {
   id: string;
+  id_domain: string;
   agent_id: string;
   pv_roi: number;
   invested_volume: number;
@@ -22,18 +23,19 @@ export interface Peer {
 }
 
 export interface TrustQuery {
-  agent_ids: string[];
+  agents: Array<{id_domain: string; agent_id: string}>;
   max_depth: number;
   point_in_time?: string;
   forget_rate?: number;
 }
 
 export interface TrustResponse {
-  scores: [string, TrustScore][];
+  scores: Array<{id_domain: string; agent_id: string; score: TrustScore}>;
   timestamp: string;
 }
 
 export interface AddExperienceRequest {
+  id_domain: string;
   agent_id: string;
   investment: number;
   return_value: number;

@@ -8,8 +8,6 @@ import {
   formatVolume
 } from '@repeer/adapter-interface';
 import { ethereumDomain } from '@repeer/ethereum-domain';
-import { createApp, ref, computed } from 'vue';
-import type { TrustClient } from '@repeer/trust-client';
 
 export class AdvancedEtherscanAdapter implements WebsiteAdapter {
   name = 'etherscan-advanced';
@@ -324,7 +322,7 @@ export class AdvancedEtherscanAdapter implements WebsiteAdapter {
     const addExpBtn = box.querySelector('.repeer-add-experience-btn') as HTMLButtonElement;
     addExpBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.createExperiencePrompt(agentId);
+      this.openAgentDetailsPage(agentId);
       this.hideTrustBox(agentId);
     });
     
@@ -373,6 +371,166 @@ export class AdvancedEtherscanAdapter implements WebsiteAdapter {
       this.hoverBoxes.delete(agentId);
     }
   }
+
+  /**
+   * Inject visual trust badges next to discovered addresses
+   */
+  private injectVisualTrustBadges(scores: Map<string, TrustScore>): void {
+    scores.forEach((score, agentId) => {
+      // Find all elements that could contain this agent ID
+      const addressPattern = agentId.replace('ethereum:', '');
+      
+      // Look for elements containing this address
+      const elements = document.querySelectorAll(`[data-highlight-target*="${addressPattern}"], a[href*="${addressPattern}"]`);
+      
+      elements.forEach(element => {
+        if (this.injectedElements.has(element)) return;
+        this.injectedElements.add(element);
+        
+        this.createVisualTrustBadge(element, agentId, score);
+      });
+    });
+  }
+
+  /**
+   * Create a visual trust badge next to an address element
+   */
+  private createVisualTrustBadge(element: Element, agentId: string, score: TrustScore): void {
+    const badge = document.createElement('span');
+    badge.className = 'repeer-trust-badge';
+    badge.setAttribute('data-agent-id', agentId);
+    
+    const roi = score.expected_pv_roi;
+    const roiClass = roi > 1.1 ? 'positive' : roi < 0.9 ? 'negative' : 'neutral';
+    const roiPercentage = ((roi - 1) * 100).toFixed(1);
+    const roiSign = roi >= 1 ? '+' : '';
+    
+    // Calculate color using the same formula as hover boxes
+    const color = calculateTrustColor(score.expected_pv_roi, score.total_volume);
+    
+    badge.style.cssText = `
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      vertical-align: middle;
+      background: ${color};
+      color: #1a202c;
+      border: 1px solid ${darkenColor(color, 20)};
+      text-decoration: none;
+    `;
+    
+    badge.textContent = `${roiSign}${roiPercentage}%`;
+    badge.title = `Repeer Trust Score: ${roiSign}${roiPercentage}% ROI | Volume: $${formatVolume(score.total_volume)} | ${score.data_points} reviews`;
+    
+    // Insert after the address element
+    if (element.parentNode) {
+      element.parentNode.insertBefore(badge, element.nextSibling);
+    }
+    
+    // Add click handler to open experience form
+    badge.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.openAgentDetailsPage(agentId);
+    });
+  }
+
+  /**
+   * Inject "unknown" badges for addresses that don't have trust scores yet
+   */
+  private injectUnknownScoreBadges(knownScores: Map<string, TrustScore>): void {
+    // Find all Ethereum addresses on the page that weren't injected yet
+    const addressSelectors = [
+      '#mainaddress',
+      '.hash-tag',
+      'a[href*="/address/"]',
+      'span[data-highlight-target]',
+      '.text-truncate a[href*="address"]',
+      'tr[id^="r_"] a[href*="/address/"]',
+      '[data-highlight-target]',
+      '.d-inline-flex.align-items-center.gap-1 span[data-highlight-target]'
+    ];
+    
+    for (const selector of addressSelectors) {
+      const elements = document.querySelectorAll(selector);
+      
+      elements.forEach(element => {
+        if (this.injectedElements.has(element)) return;
+        
+        // Extract address from various sources
+        let address = null;
+        
+        // Try data-highlight-target attribute first
+        const highlightTarget = element.getAttribute('data-highlight-target');
+        if (highlightTarget) {
+          address = ethereumDomain.parseId(highlightTarget);
+        }
+        
+        // Try href attribute
+        if (!address && element instanceof HTMLAnchorElement) {
+          address = ethereumDomain.parseId(element.href);
+        }
+        
+        // Try text content
+        if (!address) {
+          address = ethereumDomain.parseId(element.textContent || '');
+        }
+        
+        if (address) {
+          const agentId = ethereumDomain.formatTrustId(address);
+          
+          // Only create unknown badge if we don't have a known score
+          if (!knownScores.has(agentId)) {
+            this.injectedElements.add(element);
+            this.createUnknownScoreBadge(element, agentId);
+          }
+        }
+      });
+    }
+  }
+
+  /**
+   * Create an "unknown" badge for addresses without trust scores
+   */
+  private createUnknownScoreBadge(element: Element, agentId: string): void {
+    const badge = document.createElement('span');
+    badge.className = 'repeer-unknown-badge';
+    badge.setAttribute('data-agent-id', agentId);
+    
+    badge.style.cssText = `
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      vertical-align: middle;
+      background: #f7f7f7;
+      color: #666;
+      border: 1px solid #ddd;
+      text-decoration: none;
+    `;
+    
+    badge.textContent = '?';
+    badge.title = 'Repeer Trust Score: Unknown - Click to add experience';
+    
+    // Insert after the address element
+    if (element.parentNode) {
+      element.parentNode.insertBefore(badge, element.nextSibling);
+    }
+    
+    // Add click handler to open experience form
+    badge.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.openAgentDetailsPage(agentId);
+    });
+  }
   
   
   injectTrustScores(scores: Map<string, TrustScore>): void {
@@ -381,165 +539,85 @@ export class AdvancedEtherscanAdapter implements WebsiteAdapter {
       this.trustScores.set(agentId, score);
     });
     
-    // No immediate injection - trust scores appear on hover only
+    // Also inject visible trust badges immediately
+    this.injectVisualTrustBadges(scores);
+    
+    // Also inject "unknown" badges for addresses without scores
+    this.injectUnknownScoreBadges(scores);
   }
   
   async createExperiencePrompt(agentId: string): Promise<ExperienceData | null> {
-    return new Promise((resolve) => {
-      const overlay = document.createElement('div');
-      overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 9999999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      `;
-      
-      const modal = document.createElement('div');
-      modal.style.cssText = `
-        background: white;
-        padding: 32px;
-        border-radius: 12px;
-        max-width: 450px;
-        width: 90%;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      `;
-      
-      const address = agentId.replace('ethereum:', '');
-      
-      modal.innerHTML = `
-        <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 24px; font-weight: 700;">Record Experience</h2>
-        <p style="margin: 0 0 20px 0; color: #6b7280; font-size: 14px;">
-          Address: <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${ethereumDomain.displayName(address)}</code>
-        </p>
-        
-        <div style="margin-bottom: 16px;">
-          <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">Investment Amount (ETH or USD):</label>
-          <input type="number" id="repeer-investment" step="0.01" placeholder="100" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; box-sizing: border-box;">
-        </div>
-        
-        <div style="margin-bottom: 16px;">
-          <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">Return Value:</label>
-          <input type="number" id="repeer-return" step="0.01" placeholder="110" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; box-sizing: border-box;">
-        </div>
-        
-        <div style="margin-bottom: 16px;">
-          <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">Timeframe (days):</label>
-          <input type="number" id="repeer-timeframe" value="1" min="1" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; box-sizing: border-box;">
-        </div>
-        
-        <div style="margin-bottom: 24px;">
-          <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px;">Notes (optional):</label>
-          <textarea id="repeer-notes" rows="3" placeholder="Describe your experience with this address..." style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; resize: vertical; font-size: 14px; box-sizing: border-box; font-family: inherit;"></textarea>
-        </div>
-        
-        <div style="display: flex; gap: 12px; justify-content: flex-end;">
-          <button id="repeer-cancel" style="padding: 12px 24px; border: 1px solid #d1d5db; background: white; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; color: #374151;">Cancel</button>
-          <button id="repeer-submit" style="padding: 12px 24px; border: none; background: #3b82f6; color: white; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;">Record Experience</button>
-        </div>
-      `;
-      
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
-      
-      // Focus first input
-      const firstInput = modal.querySelector('input') as HTMLInputElement;
-      firstInput?.focus();
-      
-      // Handle submit
-      modal.querySelector('#repeer-submit')?.addEventListener('click', () => {
-        const investment = parseFloat((document.getElementById('repeer-investment') as HTMLInputElement).value);
-        const returnValue = parseFloat((document.getElementById('repeer-return') as HTMLInputElement).value);
-        const timeframe = parseFloat((document.getElementById('repeer-timeframe') as HTMLInputElement).value);
-        const notes = (document.getElementById('repeer-notes') as HTMLTextAreaElement).value;
-        
-        if (investment && returnValue && timeframe) {
-          resolve({
-            agent_id: agentId,
-            investment,
-            return_value: returnValue,
-            timeframe_days: timeframe,
-            notes: notes || undefined,
-            data: {
-              source: 'etherscan-advanced',
-              address: address,
-              url: window.location.href
-            }
-          });
-          overlay.remove();
-        }
-      });
-      
-      // Handle cancel
-      const cancelHandler = () => {
-        resolve(null);
-        overlay.remove();
-      };
-      
-      modal.querySelector('#repeer-cancel')?.addEventListener('click', cancelHandler);
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) cancelHandler();
-      });
-      
-      // Handle escape key
-      const escapeHandler = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          cancelHandler();
-          document.removeEventListener('keydown', escapeHandler);
-        }
-      };
-      document.addEventListener('keydown', escapeHandler);
-    });
+    // Use the new message-based API to open agent details page
+    this.openAgentDetailsPage(agentId);
+    return null; // No longer returns data directly
   }
-  
-  // New UI creation method - creates Vue app instance in provided container
-  async createExperienceUI(container: HTMLElement, agentId: string, options?: { client?: TrustClient }): Promise<{
-    onSubmit: (callback: (data: ExperienceData) => void) => void;
-    onCancel: (callback: () => void) => void;
-    destroy: () => void;
-  }> {
-    const address = agentId.replace('ethereum:', '');
+
+  /**
+   * Opens the agent details page via extension message API
+   */
+  private openAgentDetailsPage(agentId: string): void {
+    const [idDomain, agentIdPart] = this.splitAgentId(agentId);
     
-    let submitCallback: ((data: ExperienceData) => void) | null = null;
-    let cancelCallback: (() => void) | null = null;
+    // Send message to background script to open agent details
+    if (typeof (window as any).chrome !== 'undefined' && (window as any).chrome.runtime) {
+      (window as any).chrome.runtime.sendMessage({
+        type: 'SHOW_AGENT_DETAILS',
+        idDomain,
+        agentId: agentIdPart
+      }).catch((error: any) => {
+        console.error('Failed to open agent details page:', error);
+        // Fallback: show an alert
+        alert('Please install or enable the Repeer browser extension to record experiences.');
+      });
+    } else {
+      console.warn('Chrome extension API not available');
+      alert('Please install the Repeer browser extension to record experiences.');
+    }
+  }
+
+  /**
+   * Suggests an experience to be entered via the extension
+   * @param pvRoi - Present value ROI (e.g., 1.2 for 20% return)
+   * @param volume - Volume/amount of the experience
+   * @param data - Additional adapter-specific data
+   */
+  async enterExperience(agentId: string, pvRoi: number, volume: number, data?: any): Promise<void> {
+    const [idDomain, agentIdPart] = this.splitAgentId(agentId);
     
-    // Create Vue app with our UI component
-    const app = createApp(UI, {
-      agentId,
-      address,
-      client: options?.client
-    });
-    
-    // Set up event handlers
-    app.config.globalProperties.$emit = (event: string, data?: any) => {
-      if (event === 'submit' && submitCallback) {
-        submitCallback(data);
-      } else if (event === 'cancel' && cancelCallback) {
-        cancelCallback();
-      }
-    };
-    
-    // Mount the app to the container
-    const instance = app.mount(container);
-    
-    // Return the interface
-    return {
-      onSubmit: (callback: (data: ExperienceData) => void) => {
-        submitCallback = callback;
-      },
-      onCancel: (callback: () => void) => {
-        cancelCallback = callback;
-      },
-      destroy: () => {
-        app.unmount();
-      }
-    };
+    // Send message to background script to suggest experience
+    if (typeof (window as any).chrome !== 'undefined' && (window as any).chrome.runtime) {
+      (window as any).chrome.runtime.sendMessage({
+        type: 'ENTER_EXPERIENCE',
+        idDomain,
+        agentId: agentIdPart,
+        pvRoi,
+        volume,
+        data: {
+          source: 'etherscan-advanced',
+          address: agentIdPart,
+          url: window.location.href,
+          ...data
+        }
+      }).catch((error: any) => {
+        console.error('Failed to suggest experience:', error);
+      });
+    } else {
+      console.warn('Chrome extension API not available');
+    }
+  }
+
+  /**
+   * Helper to split agent ID into domain and ID parts
+   */
+  private splitAgentId(agentId: string): [string, string] {
+    const colonIndex = agentId.indexOf(':');
+    if (colonIndex === -1) {
+      return ['ethereum', agentId]; // Default to ethereum domain
+    }
+    return [
+      agentId.substring(0, colonIndex),
+      agentId.substring(colonIndex + 1)
+    ];
   }
   
   // Lifecycle methods

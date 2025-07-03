@@ -128,6 +128,62 @@
         </div>
       </div>
 
+      <!-- Contact Tab -->
+      <div v-if="activeTab === 'contact'" class="tab-content">
+        <div class="contact-section">
+          <h3 class="setting-title">Your Peer ID</h3>
+          <p class="setting-description">
+            Share this ID with others so they can add you as a trusted peer.
+          </p>
+          
+          <div v-if="!peerInfo.id" class="loading-state">
+            Loading peer information...
+          </div>
+          
+          <div v-else class="peer-id-section">
+            <div class="peer-id-display">
+              <label class="setting-label">Peer ID:</label>
+              <div class="peer-id-container">
+                <input 
+                  :value="peerInfo.id" 
+                  readonly 
+                  class="peer-id-input"
+                  @click="copyToClipboard(peerInfo.id)"
+                >
+                <button @click="copyToClipboard(peerInfo.id)" class="copy-btn" title="Copy to clipboard">
+                  📋
+                </button>
+              </div>
+            </div>
+            
+            <div class="multiaddr-display">
+              <label class="setting-label">Connection Address:</label>
+              <div class="peer-id-container">
+                <input 
+                  :value="peerInfo.multiaddr" 
+                  readonly 
+                  class="peer-id-input"
+                  @click="copyToClipboard(peerInfo.multiaddr)"
+                >
+                <button @click="copyToClipboard(peerInfo.multiaddr)" class="copy-btn" title="Copy to clipboard">
+                  📋
+                </button>
+              </div>
+            </div>
+            
+            <div class="qr-section">
+              <h4 class="setting-label">QR Code</h4>
+              <div class="qr-container">
+                <canvas ref="qrCanvas" class="qr-canvas"></canvas>
+              </div>
+              <p class="qr-description">
+                Others can scan this QR code to add you as a peer.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Settings Tab -->
       <div v-if="activeTab === 'settings'" class="tab-content">
         <div class="setting">
@@ -309,9 +365,17 @@ const permissions = ref<AdapterPermission[]>([])
 const connectionState = ref<ConnectionState>('failed')
 const testedEndpoint = ref('')
 
+const peerInfo = ref({
+  id: '',
+  multiaddr: ''
+})
+
+const qrCanvas = ref<HTMLCanvasElement | null>(null)
+
 const tabs = [
   { id: 'scores', label: 'Trust Scores' },
   { id: 'peers', label: 'Peers' },
+  { id: 'contact', label: 'Contact' },
   { id: 'settings', label: 'Settings' }
 ]
 
@@ -321,6 +385,7 @@ onMounted(async () => {
   await loadSettings()
   await loadPeers()
   await loadPermissions()
+  await loadPeerInfo()
   await checkConnection()
 })
 
@@ -361,7 +426,13 @@ const searchTrustScore = async () => {
     const parsed = popupRegistry.parseUrl(searchQuery.value)
     const agentId = parsed ? parsed.trustId : searchQuery.value
 
-    const score = await client.queryTrust(agentId, {
+    // Parse agent ID - expect format "domain:id"
+    const colonIndex = agentId.indexOf(':');
+    const [idDomain, agentIdPart] = colonIndex > -1 
+      ? [agentId.substring(0, colonIndex), agentId.substring(colonIndex + 1)]
+      : ['ethereum', agentId] // Default to ethereum if no domain specified
+    
+    const score = await client.queryTrust(idDomain, agentIdPart, {
       max_depth: settings.value.maxDepth,
       forget_rate: settings.value.forgetRate
     })
@@ -424,8 +495,15 @@ const removePeer = async (peerId: string) => {
 
 const recordExperience = async () => {
   try {
+    // Parse agent ID - expect format "domain:id"
+    const colonIndex = experienceForm.value.agentId.indexOf(':');
+    const [idDomain, agentIdPart] = colonIndex > -1 
+      ? [experienceForm.value.agentId.substring(0, colonIndex), experienceForm.value.agentId.substring(colonIndex + 1)]
+      : ['ethereum', experienceForm.value.agentId] // Default to ethereum if no domain specified
+    
     await client.addExperience({
-      agent_id: experienceForm.value.agentId,
+      id_domain: idDomain,
+      agent_id: agentIdPart,
       investment: experienceForm.value.investment,
       return_value: experienceForm.value.returnValue,
       timeframe_days: experienceForm.value.timeframeDays,
@@ -532,6 +610,70 @@ const checkConnection = async () => {
   } catch (error) {
     connectionState.value = 'failed'
   }
+}
+
+const loadPeerInfo = async () => {
+  try {
+    // Fetch self peer ID from the trust node
+    const response = await fetch(`${settings.value.apiEndpoint}/peers/self`)
+    if (response.ok) {
+      const data = await response.json()
+      peerInfo.value.id = data.peer_id
+      peerInfo.value.multiaddr = data.multiaddr || `${data.peer_id}`
+      
+      // Generate QR code when peer info is loaded
+      await generateQRCode()
+    }
+  } catch (error) {
+    console.error('Error loading peer info:', error)
+  }
+}
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    // Could add a toast notification here
+  } catch (error) {
+    console.error('Failed to copy to clipboard:', error)
+  }
+}
+
+const generateQRCode = async () => {
+  // Simple QR code generation without external libraries
+  // For a production app, you'd use a proper QR code library
+  if (!qrCanvas.value || !peerInfo.value.id) return
+  
+  const canvas = qrCanvas.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  // Set canvas size
+  canvas.width = 200
+  canvas.height = 200
+  
+  // Simple placeholder - in a real implementation, use a QR code library
+  ctx.fillStyle = '#f0f0f0'
+  ctx.fillRect(0, 0, 200, 200)
+  
+  ctx.fillStyle = '#333'
+  ctx.font = '10px monospace'
+  ctx.textAlign = 'center'
+  ctx.fillText('QR Code', 100, 30)
+  ctx.fillText('(placeholder)', 100, 45)
+  
+  // Draw a simple grid pattern to represent QR code
+  ctx.fillStyle = '#000'
+  for (let i = 0; i < 15; i++) {
+    for (let j = 0; j < 15; j++) {
+      if ((i + j) % 3 === 0) {
+        ctx.fillRect(20 + i * 10, 60 + j * 10, 8, 8)
+      }
+    }
+  }
+  
+  ctx.fillStyle = '#666'
+  ctx.font = '8px monospace'
+  ctx.fillText('Scan to add peer', 100, 185)
 }
 
 
@@ -1021,6 +1163,86 @@ const endpointDisplay = computed(() => {
 
 .empty-state {
   padding: 20px;
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Contact Tab Styles */
+.contact-section {
+  padding: 0;
+}
+
+.peer-id-section {
+  margin-top: 16px;
+}
+
+.peer-id-display,
+.multiaddr-display {
+  margin-bottom: 16px;
+}
+
+.peer-id-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.peer-id-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  background: #f9fafb;
+  cursor: pointer;
+}
+
+.peer-id-input:hover {
+  background: #f3f4f6;
+}
+
+.copy-btn {
+  padding: 8px 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  min-width: 40px;
+}
+
+.copy-btn:hover {
+  background: #5a67d8;
+}
+
+.qr-section {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.qr-container {
+  margin: 12px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.qr-canvas {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+}
+
+.qr-description {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.loading-state {
+  padding: 40px 20px;
   text-align: center;
   color: #6b7280;
   font-style: italic;

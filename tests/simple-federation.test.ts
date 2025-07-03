@@ -139,7 +139,8 @@ describe('Simple Federation Tests', () => {
     
     const ethAddress = 'ethereum:0xtest1234567890123456789012345678901234567890';
     await alice.addExperience({
-      agent_id: ethAddress,
+      id_domain: 'ethereum',
+      agent_id: '0xtest1234567890123456789012345678901234567890',
       investment: 1000,
       return_value: 1200,
       timeframe_days: 30,
@@ -147,7 +148,7 @@ describe('Simple Federation Tests', () => {
       notes: 'Alice had a positive experience',
     });
     
-    const aliceScore = await alice.queryTrust(ethAddress);
+    const aliceScore = await alice.queryTrust('ethereum', '0xtest1234567890123456789012345678901234567890');
     expect(aliceScore.expected_pv_roi).toBeGreaterThan(1.0);
     expect(aliceScore.data_points).toBe(1);
     expect(aliceScore.total_volume).toBe(1000);
@@ -198,7 +199,7 @@ describe('Simple Federation Tests', () => {
     
     try {
       // Bob tries to query through Alice (depth 1)
-      const bobScore = await bob.queryTrust(ethAddress, { max_depth: 1 });
+      const bobScore = await bob.queryTrust('ethereum', '0xtest1234567890123456789012345678901234567890', { max_depth: 1 });
       
       // If we get here, federation is working!
       console.log('Federation working! Bob can see Alice\'s data');
@@ -220,7 +221,8 @@ describe('Simple Federation Tests', () => {
     
     // Add another experience for Alice
     await alice.addExperience({
-      agent_id: 'domain:example.com',
+      id_domain: 'domain',
+      agent_id: 'example.com',
       investment: 500,
       return_value: 600,
       timeframe_days: 14,
@@ -229,10 +231,10 @@ describe('Simple Federation Tests', () => {
     
     // Alice should see both her experiences in a batch query
     const aliceBatch = await alice.queryTrustBatch({
-      agent_ids: [
-        'ethereum:0xtest1234567890123456789012345678901234567890',
-        'domain:example.com',
-        'domain:nonexistent.com', // This won't have data
+      agents: [
+        { id_domain: 'ethereum', agent_id: '0xtest1234567890123456789012345678901234567890' },
+        { id_domain: 'domain', agent_id: 'example.com' },
+        { id_domain: 'domain', agent_id: 'nonexistent.com' }, // This won't have data
       ],
       max_depth: 1,
     });
@@ -242,9 +244,9 @@ describe('Simple Federation Tests', () => {
     
     // Bob should see no data in his batch query (unless federation is working)
     const bobBatch = await bob.queryTrustBatch({
-      agent_ids: [
-        'ethereum:0xtest1234567890123456789012345678901234567890',
-        'domain:example.com',
+      agents: [
+        { id_domain: 'ethereum', agent_id: '0xtest1234567890123456789012345678901234567890' },
+        { id_domain: 'domain', agent_id: 'example.com' },
       ],
       max_depth: 3, // Try deep search
     });

@@ -217,76 +217,58 @@ describe('AdvancedEtherscanAdapter', () => {
   });
 
   describe('Experience prompt', () => {
-    it('should create experience prompt modal', async () => {
+    it('should open agent details page when chrome extension API is available', async () => {
       const testAddress = '0x1234567890123456789012345678901234567890';
       const agentId = `ethereum:${testAddress}`;
       
-      mockEthereumDomain.displayName.mockReturnValue('0x1234...7890');
+      // Mock chrome runtime API
+      const mockSendMessage = jest.fn().mockResolvedValue({});
+      (global as any).chrome = {
+        runtime: {
+          sendMessage: mockSendMessage
+        }
+      };
+      (global as any).window.chrome = (global as any).chrome;
       
-      // Start the prompt (don't await - we'll interact with it)
-      const promptPromise = adapter.createExperiencePrompt(agentId);
+      const result = await adapter.createExperiencePrompt(agentId);
       
-      // Wait for DOM to update
-      await new Promise(resolve => setTimeout(resolve, 0));
+      // Should open agent details page via message API
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        type: 'SHOW_AGENT_DETAILS',
+        idDomain: 'ethereum',
+        agentId: testAddress
+      });
       
-      // Check modal was created
-      const overlay = document.querySelector('div[style*="position: fixed"]');
-      expect(overlay).toBeTruthy();
-      
-      // Check modal content
-      const modal = overlay?.querySelector('div[style*="background: white"]');
-      expect(modal).toBeTruthy();
-      expect(modal?.innerHTML).toContain('Record Experience');
-      expect(modal?.innerHTML).toContain('0x1234...7890');
-      
-      // Click cancel to resolve promise
-      const cancelButton = modal?.querySelector('#repeer-cancel') as HTMLButtonElement;
-      cancelButton?.click();
-      
-      const result = await promptPromise;
+      // Should return null since we're not creating a modal anymore
       expect(result).toBeNull();
+      
+      // Cleanup
+      delete (global as any).chrome;
+      delete (global as any).window.chrome;
     });
 
-    it('should return experience data when form is submitted', async () => {
+    it('should show fallback message when chrome extension API is not available', async () => {
       const testAddress = '0x1234567890123456789012345678901234567890';
       const agentId = `ethereum:${testAddress}`;
       
-      mockEthereumDomain.displayName.mockReturnValue('0x1234...7890');
+      // Mock window.alert to prevent jsdom error
+      const mockAlert = jest.fn();
+      global.alert = mockAlert;
       
-      const promptPromise = adapter.createExperiencePrompt(agentId);
+      // Ensure chrome API is not available
+      delete (global as any).chrome;
+      delete (global as any).window.chrome;
       
-      // Wait for DOM to update
-      await new Promise(resolve => setTimeout(resolve, 0));
+      const result = await adapter.createExperiencePrompt(agentId);
       
-      // Fill in form
-      const investmentInput = document.getElementById('repeer-investment') as HTMLInputElement;
-      const returnInput = document.getElementById('repeer-return') as HTMLInputElement;
-      const timeframeInput = document.getElementById('repeer-timeframe') as HTMLInputElement;
-      const notesInput = document.getElementById('repeer-notes') as HTMLTextAreaElement;
+      // Should show alert about missing extension
+      expect(mockAlert).toHaveBeenCalledWith('Please install the Repeer browser extension to record experiences.');
       
-      investmentInput.value = '100';
-      returnInput.value = '150';
-      timeframeInput.value = '30';
-      notesInput.value = 'Great interaction';
+      // Should return null since no modal is created
+      expect(result).toBeNull();
       
-      // Submit form
-      const submitButton = document.getElementById('repeer-submit') as HTMLButtonElement;
-      submitButton?.click();
-      
-      const result = await promptPromise;
-      
-      expect(result).toEqual({
-        agent_id: agentId,
-        investment: 100,
-        return_value: 150,
-        timeframe_days: 30,
-        notes: 'Great interaction',
-        data: {
-          source: 'etherscan-advanced',
-          address: testAddress,
-          url: window.location.href
-        }
-      });
+      // Cleanup
+      delete (global as any).alert;
     });
   });
 

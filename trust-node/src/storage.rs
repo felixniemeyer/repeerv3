@@ -9,7 +9,7 @@ use uuid::Uuid;
 #[async_trait]
 pub trait Storage: Send + Sync {
     async fn add_experience(&self, experience: TrustExperience) -> Result<()>;
-    async fn get_experiences(&self, agent_id: &str) -> Result<Vec<TrustExperience>>;
+    async fn get_experiences(&self, id_domain: &str, agent_id: &str) -> Result<Vec<TrustExperience>>;
     async fn get_all_experiences(&self) -> Result<Vec<TrustExperience>>;
     async fn remove_experience(&self, experience_id: &str) -> Result<()>;
     
@@ -21,7 +21,7 @@ pub trait Storage: Send + Sync {
     async fn clear_experiences(&self) -> Result<()>;
     
     async fn cache_trust_score(&self, cached: CachedTrustScore) -> Result<()>;
-    async fn get_cached_scores(&self, agent_id: &str) -> Result<Vec<CachedTrustScore>>;
+    async fn get_cached_scores(&self, id_domain: &str, agent_id: &str) -> Result<Vec<CachedTrustScore>>;
 }
 
 pub struct SqliteStorage {
@@ -43,6 +43,7 @@ impl SqliteStorage {
             r#"
             CREATE TABLE IF NOT EXISTS experiences (
                 id TEXT PRIMARY KEY,
+                id_domain TEXT NOT NULL,
                 agent_id TEXT NOT NULL,
                 pv_roi REAL NOT NULL,
                 invested_volume REAL NOT NULL,
@@ -57,7 +58,7 @@ impl SqliteStorage {
         .await?;
 
         sqlx::query(
-            r#"CREATE INDEX IF NOT EXISTS idx_experiences_agent_id ON experiences(agent_id)"#
+            r#"CREATE INDEX IF NOT EXISTS idx_experiences_agent_id ON experiences(id_domain, agent_id)"#
         )
         .execute(&pool)
         .await?;
@@ -85,13 +86,14 @@ impl SqliteStorage {
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS cached_scores (
+                id_domain TEXT NOT NULL,
                 agent_id TEXT NOT NULL,
                 expected_pv_roi REAL NOT NULL,
                 total_volume REAL NOT NULL,
                 data_points INTEGER NOT NULL,
                 from_peer TEXT NOT NULL,
                 cached_at TEXT NOT NULL,
-                PRIMARY KEY (agent_id, from_peer)
+                PRIMARY KEY (id_domain, agent_id, from_peer)
             )
             "#
         )
@@ -99,7 +101,7 @@ impl SqliteStorage {
         .await?;
 
         sqlx::query(
-            r#"CREATE INDEX IF NOT EXISTS idx_cached_scores_agent_id ON cached_scores(agent_id)"#
+            r#"CREATE INDEX IF NOT EXISTS idx_cached_scores_agent_id ON cached_scores(id_domain, agent_id)"#
         )
         .execute(&pool)
         .await?;
@@ -122,11 +124,12 @@ impl Storage for SqliteStorage {
             
         sqlx::query(
             r#"
-            INSERT INTO experiences (id, agent_id, pv_roi, invested_volume, timestamp, notes, data)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            INSERT INTO experiences (id, id_domain, agent_id, pv_roi, invested_volume, timestamp, notes, data)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
             "#
         )
         .bind(experience.id.to_string())
+        .bind(&experience.id_domain)
         .bind(&experience.agent_id)
         .bind(experience.pv_roi)
         .bind(experience.invested_volume)
@@ -139,10 +142,11 @@ impl Storage for SqliteStorage {
         Ok(())
     }
 
-    async fn get_experiences(&self, agent_id: &str) -> Result<Vec<TrustExperience>> {
+    async fn get_experiences(&self, id_domain: &str, agent_id: &str) -> Result<Vec<TrustExperience>> {
         #[derive(sqlx::FromRow)]
         struct ExperienceRow {
             id: String,
+            id_domain: String,
             agent_id: String,
             pv_roi: f64,
             invested_volume: f64,
@@ -153,12 +157,13 @@ impl Storage for SqliteStorage {
         
         let rows = sqlx::query_as::<_, ExperienceRow>(
             r#"
-            SELECT id, agent_id, pv_roi, invested_volume, timestamp, notes, data
+            SELECT id, id_domain, agent_id, pv_roi, invested_volume, timestamp, notes, data
             FROM experiences
-            WHERE agent_id = ?1
+            WHERE id_domain = ?1 AND agent_id = ?2
             ORDER BY timestamp DESC
             "#
         )
+        .bind(id_domain)
         .bind(agent_id)
         .fetch_all(&self.pool)
         .await?;
@@ -167,6 +172,7 @@ impl Storage for SqliteStorage {
             .into_iter()
             .map(|row| TrustExperience {
                 id: Uuid::parse_str(&row.id).unwrap(),
+                id_domain: row.id_domain,
                 agent_id: row.agent_id,
                 pv_roi: row.pv_roi,
                 invested_volume: row.invested_volume,
@@ -183,6 +189,7 @@ impl Storage for SqliteStorage {
         #[derive(sqlx::FromRow)]
         struct ExperienceRow {
             id: String,
+            id_domain: String,
             agent_id: String,
             pv_roi: f64,
             invested_volume: f64,
@@ -193,7 +200,7 @@ impl Storage for SqliteStorage {
         
         let rows = sqlx::query_as::<_, ExperienceRow>(
             r#"
-            SELECT id, agent_id, pv_roi, invested_volume, timestamp, notes, data
+            SELECT id, id_domain, agent_id, pv_roi, invested_volume, timestamp, notes, data
             FROM experiences
             ORDER BY timestamp DESC
             "#
@@ -205,6 +212,7 @@ impl Storage for SqliteStorage {
             .into_iter()
             .map(|row| TrustExperience {
                 id: Uuid::parse_str(&row.id).unwrap(),
+                id_domain: row.id_domain,
                 agent_id: row.agent_id,
                 pv_roi: row.pv_roi,
                 invested_volume: row.invested_volume,
@@ -336,10 +344,11 @@ impl Storage for SqliteStorage {
         sqlx::query(
             r#"
             INSERT OR REPLACE INTO cached_scores 
-            (agent_id, expected_pv_roi, total_volume, data_points, from_peer, cached_at)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            (id_domain, agent_id, expected_pv_roi, total_volume, data_points, from_peer, cached_at)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
             "#
         )
+        .bind(&cached.id_domain)
         .bind(&cached.agent_id)
         .bind(cached.score.expected_pv_roi)
         .bind(cached.score.total_volume)
@@ -352,9 +361,10 @@ impl Storage for SqliteStorage {
         Ok(())
     }
 
-    async fn get_cached_scores(&self, agent_id: &str) -> Result<Vec<CachedTrustScore>> {
+    async fn get_cached_scores(&self, id_domain: &str, agent_id: &str) -> Result<Vec<CachedTrustScore>> {
         #[derive(sqlx::FromRow)]
         struct CachedScoreRow {
+            id_domain: String,
             agent_id: String,
             expected_pv_roi: f64,
             total_volume: f64,
@@ -365,12 +375,13 @@ impl Storage for SqliteStorage {
         
         let rows = sqlx::query_as::<_, CachedScoreRow>(
             r#"
-            SELECT agent_id, expected_pv_roi, total_volume, data_points, from_peer, cached_at
+            SELECT id_domain, agent_id, expected_pv_roi, total_volume, data_points, from_peer, cached_at
             FROM cached_scores
-            WHERE agent_id = ?1
+            WHERE id_domain = ?1 AND agent_id = ?2
             ORDER BY cached_at DESC
             "#
         )
+        .bind(id_domain)
         .bind(agent_id)
         .fetch_all(&self.pool)
         .await?;
@@ -378,6 +389,7 @@ impl Storage for SqliteStorage {
         Ok(rows
             .into_iter()
             .map(|row| CachedTrustScore {
+                id_domain: row.id_domain,
                 agent_id: row.agent_id,
                 score: TrustScore {
                     expected_pv_roi: row.expected_pv_roi,
@@ -405,7 +417,8 @@ mod tests {
         
         let experience = TrustExperience {
             id: Uuid::new_v4(),
-            agent_id: "ethereum:0x123".to_string(),
+            id_domain: "ethereum".to_string(),
+            agent_id: "0x123".to_string(),
             pv_roi: 1.1,
             invested_volume: 1000.0,
             timestamp: Utc::now(),
@@ -415,7 +428,7 @@ mod tests {
         
         storage.add_experience(experience.clone()).await?;
         
-        let experiences = storage.get_experiences("ethereum:0x123").await?;
+        let experiences = storage.get_experiences("ethereum", "0x123").await?;
         assert_eq!(experiences.len(), 1);
         assert_eq!(experiences[0].pv_roi, 1.1);
         

@@ -37,6 +37,9 @@ class ModernTrustScoreInjector {
       }
     })
 
+    // Expose global API for adapters to call extension functions
+    this.exposeAdapterAPI()
+
     // Handle page navigation
     window.addEventListener('beforeunload', () => {
       adapterRegistry.cleanup()
@@ -258,6 +261,58 @@ class ModernTrustScoreInjector {
       console.error('Error handling adapter permission request:', error)
       return false
     }
+  }
+
+  /**
+   * Expose global API for adapters to call extension functions
+   */
+  private exposeAdapterAPI() {
+    // Define the global API interface
+    const repeerAPI = {
+      /**
+       * Suggests an experience to be entered via the extension
+       * @param pvRoi - Present value ROI (e.g., 1.2 for 20% return)
+       * @param volume - Volume/amount of the experience
+       * @param data - Optional adapter-specific data
+       */
+      enterExperience: async (idDomain: string, agentId: string, pvRoi: number, volume: number, data?: any): Promise<void> => {
+        try {
+          await chrome.runtime.sendMessage({
+            type: 'ENTER_EXPERIENCE',
+            idDomain,
+            agentId,
+            pvRoi,
+            volume,
+            data
+          });
+        } catch (error) {
+          console.error('Failed to send enter experience message:', error);
+          throw error;
+        }
+      },
+
+      /**
+       * Shows the agent details page with manual form, score breakdown, and experiences
+       */
+      showAgentDetails: async (idDomain: string, agentId: string): Promise<void> => {
+        try {
+          await chrome.runtime.sendMessage({
+            type: 'SHOW_AGENT_DETAILS',
+            idDomain,
+            agentId
+          });
+        } catch (error) {
+          console.error('Failed to send show agent details message:', error);
+          throw error;
+        }
+      }
+    };
+
+    // Expose the API on the window object
+    (window as any).repeer = repeerAPI;
+
+    // Also dispatch a custom event to notify adapters that the API is ready
+    window.dispatchEvent(new CustomEvent('repeer:api-ready', { detail: repeerAPI }));
   }
 }
 

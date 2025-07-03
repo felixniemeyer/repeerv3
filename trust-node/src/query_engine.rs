@@ -68,25 +68,26 @@ impl<S: Storage> QueryEngine<S> {
 
     pub async fn calculate_trust_score(
         &self,
+        id_domain: &str,
         agent_id: &str,
         point_in_time: DateTime<Utc>,
         forget_rate: f64,
     ) -> anyhow::Result<TrustScore> {
         let now = Utc::now();
-        let cache_key = self.get_cache_key(agent_id, point_in_time, forget_rate);
+        let cache_key = self.get_cache_key(&format!("{}:{}", id_domain, agent_id), point_in_time, forget_rate);
         
         // Check cache first
         if let Ok(cache) = self.cache.read() {
             if let Some(entry) = cache.get(&cache_key) {
                 if self.is_cache_valid(entry, now) {
-                    debug!("Cache hit for agent {}", agent_id);
+                    debug!("Cache hit for agent {}:{}", id_domain, agent_id);
                     return Ok(entry.score.clone());
                 }
             }
         }
         
-        debug!("Cache miss for agent {}, calculating...", agent_id);
-        let experiences = self.storage.get_experiences(agent_id).await?;
+        debug!("Cache miss for agent {}:{}, calculating...", id_domain, agent_id);
+        let experiences = self.storage.get_experiences(id_domain, agent_id).await?;
         
         if experiences.is_empty() {
             let default_score = TrustScore::default();
@@ -284,6 +285,7 @@ mod tests {
         // Add two experiences for the same agent
         storage.add_experience(TrustExperience {
             id: Uuid::new_v4(),
+            id_domain: "test".to_string(),
             agent_id: "test_agent".to_string(),
             pv_roi: 1.2,
             invested_volume: 1000.0,
@@ -294,6 +296,7 @@ mod tests {
 
         storage.add_experience(TrustExperience {
             id: Uuid::new_v4(),
+            id_domain: "test".to_string(),
             agent_id: "test_agent".to_string(),
             pv_roi: 0.8,
             invested_volume: 500.0,
@@ -302,7 +305,7 @@ mod tests {
             data: None,
         }).await?;
 
-        let score = engine.calculate_trust_score("test_agent", now, 0.0).await?;
+        let score = engine.calculate_trust_score("test", "test_agent", now, 0.0).await?;
         
         // Expected: (1.2 * 1000 + 0.8 * 500) / (1000 + 500) = 1.067
         assert!((score.expected_pv_roi - 1.067).abs() < 0.001);

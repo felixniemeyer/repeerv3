@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Details - Repeer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            flex: 1;
+            padding: 1.5rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-id {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #9ca3af;
+            background: #2a2a2a;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #333;
+            word-break: break-all;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #333;
+            margin-bottom: 2rem;
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #3b82f6;
+            border-bottom: 2px solid #3b82f6;
+        }
+
+        .tab:hover {
+            color: #e0e0e0;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            background: #2a2a2a;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #333;
+        }
+
+        .section h2 {
+            font-size: 1.2rem;
+            color: #ffffff;
+            margin-bottom: 1rem;
+        }
+
+        .section h3 {
+            font-size: 1rem;
+            color: #ffffff;
+            margin-bottom: 0.75rem;
+        }
+
+        .score-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .score-metric {
+            text-align: center;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            border: 1px solid #333;
+        }
+
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 0.25rem;
+        }
+
+        .score-label {
+            font-size: 0.8rem;
+            color: #b0b0b0;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #ffffff;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #404040;
+            border-radius: 0.5rem;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 3rem;
+        }
+
+        .form-group .help-text {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            margin-top: 0.25rem;
+        }
+
+        .experience-list {
+            max-height: 20rem;
+            overflow-y: auto;
+            border: 1px solid #333;
+            border-radius: 0.5rem;
+        }
+
+        .experience-item {
+            padding: 1rem;
+            border-bottom: 1px solid #333;
+            background: #1a1a1a;
+        }
+
+        .experience-item:last-child {
+            border-bottom: none;
+        }
+
+        .experience-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .experience-roi {
+            font-weight: bold;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+        }
+
+        .roi-positive {
+            background: #10b981;
+            color: #ffffff;
+        }
+
+        .roi-negative {
+            background: #ef4444;
+            color: #ffffff;
+        }
+
+        .roi-neutral {
+            background: #6b7280;
+            color: #ffffff;
+        }
+
+        .experience-details {
+            font-size: 0.8rem;
+            color: #b0b0b0;
+        }
+
+        .experience-notes {
+            margin-top: 0.5rem;
+            font-style: italic;
+            color: #9ca3af;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #374151;
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .error {
+            background: #ef4444;
+            color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .success {
+            background: #10b981;
+            color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #9ca3af;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #9ca3af;
+        }
+
+        .roi-calculation {
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .roi-calculation .roi-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Agent Details</h1>
+            <div class="agent-id" id="agent-display">Loading...</div>
+        </div>
+
+        <div id="error-message" class="error" style="display: none;"></div>
+        <div id="success-message" class="success" style="display: none;"></div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="manual">Record Experience</button>
+            <button class="tab" data-tab="breakdown">Trust Score</button>
+            <button class="tab" data-tab="history">Experience History</button>
+        </div>
+
+        <!-- Manual Experience Entry -->
+        <div id="manual-tab" class="tab-content active">
+            <div class="section">
+                <h2>Record New Experience</h2>
+                <form id="experience-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="investment">Investment Amount ($)</label>
+                            <input type="number" id="investment" step="0.01" min="0" placeholder="1000" required>
+                            <div class="help-text">How much did you invest?</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="return-value">Return Value ($)</label>
+                            <input type="number" id="return-value" step="0.01" min="0" placeholder="1200" required>
+                            <div class="help-text">How much did you get back?</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="timeframe">Timeframe (days)</label>
+                            <input type="number" id="timeframe" min="1" placeholder="30" value="1" required>
+                            <div class="help-text">Duration of the experience</div>
+                        </div>
+                    </div>
+                    
+                    <div id="roi-preview" class="roi-calculation" style="display: none;">
+                        <div class="roi-value" id="roi-preview-value">0%</div>
+                        <div id="roi-preview-description">Break-even</div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="notes">Notes (optional)</label>
+                        <textarea id="notes" placeholder="Describe your experience with this agent..."></textarea>
+                        <div class="help-text">Additional details about this experience</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Record Experience</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Trust Score Breakdown -->
+        <div id="breakdown-tab" class="tab-content">
+            <div class="section">
+                <h2>Trust Score Overview</h2>
+                <div id="score-loading" class="loading">Loading trust score...</div>
+                <div id="score-content" style="display: none;">
+                    <div class="score-grid">
+                        <div class="score-metric">
+                            <div class="score-value" id="expected-roi">N/A</div>
+                            <div class="score-label">Expected ROI</div>
+                        </div>
+                        <div class="score-metric">
+                            <div class="score-value" id="total-volume">$0</div>
+                            <div class="score-label">Total Volume</div>
+                        </div>
+                        <div class="score-metric">
+                            <div class="score-value" id="data-points">0</div>
+                            <div class="score-label">Data Points</div>
+                        </div>
+                    </div>
+                    <div id="score-details">
+                        <h3>Score Composition</h3>
+                        <p style="color: #9ca3af; margin-bottom: 1rem;">Based on personal experiences and peer recommendations</p>
+                        <div id="score-breakdown">
+                            <!-- Score breakdown will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Experience History -->
+        <div id="history-tab" class="tab-content">
+            <div class="section">
+                <h2>Your Experiences</h2>
+                <div id="history-loading" class="loading">Loading experience history...</div>
+                <div id="history-content" style="display: none;">
+                    <div id="experiences-list" class="experience-list">
+                        <!-- Experience items will be populated here -->
+                    </div>
+                    <div id="no-experiences" class="empty-state" style="display: none;">
+                        <p>No experiences recorded yet</p>
+                        <p style="margin-top: 0.5rem; font-size: 0.9rem;">Record your first experience using the form above</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>

@@ -106,7 +106,8 @@ describe('Multi-node Integration Tests', () => {
     const alice = nodes[0].client!;
     
     const experience = await alice.addExperience({
-      agent_id: 'ethereum:0x1234567890123456789012345678901234567890',
+      id_domain: 'ethereum',
+      agent_id: '0x1234567890123456789012345678901234567890',
       investment: 1000,
       return_value: 1100,
       timeframe_days: 30,
@@ -114,7 +115,8 @@ describe('Multi-node Integration Tests', () => {
       notes: 'Good DeFi protocol',
     });
     
-    expect(experience.agent_id).toBe('ethereum:0x1234567890123456789012345678901234567890');
+    expect(experience.id_domain).toBe('ethereum');
+    expect(experience.agent_id).toBe('0x1234567890123456789012345678901234567890');
     expect(experience.invested_volume).toBe(1000);
     expect(experience.pv_roi).toBeCloseTo(1.096, 2); // Approximately 1100 / (1.05^(30/365)) / 1000
   });
@@ -122,7 +124,7 @@ describe('Multi-node Integration Tests', () => {
   test('Alice can query her own experience', async () => {
     const alice = nodes[0].client!;
     
-    const score = await alice.queryTrust('ethereum:0x1234567890123456789012345678901234567890');
+    const score = await alice.queryTrust('ethereum', '0x1234567890123456789012345678901234567890');
     
     expect(score.expected_pv_roi).toBeGreaterThan(1.0);
     expect(score.total_volume).toBeGreaterThanOrEqual(1000); // May have multiple experiences from other tests
@@ -154,7 +156,8 @@ describe('Multi-node Integration Tests', () => {
     
     // Add experience for AliExpress item
     await charlie.addExperience({
-      agent_id: 'aliexpress:1234567890',
+      id_domain: 'aliexpress',
+      agent_id: '1234567890',
       investment: 50,
       return_value: 45, // Bad experience
       timeframe_days: 14,
@@ -163,15 +166,16 @@ describe('Multi-node Integration Tests', () => {
     
     // Add experience for domain
     await charlie.addExperience({
-      agent_id: 'domain:example.com',
+      id_domain: 'domain',
+      agent_id: 'example.com',
       investment: 100, // Time investment valued at $100
       return_value: 120, // Good content/service
       timeframe_days: 1,
       notes: 'Useful website with good information',
     });
     
-    const aliScore = await charlie.queryTrust('aliexpress:1234567890');
-    const domainScore = await charlie.queryTrust('domain:example.com');
+    const aliScore = await charlie.queryTrust('aliexpress', '1234567890');
+    const domainScore = await charlie.queryTrust('domain', 'example.com');
     
     expect(aliScore.expected_pv_roi).toBeLessThan(1.0); // Bad experience
     expect(domainScore.expected_pv_roi).toBeGreaterThan(1.0); // Good experience
@@ -181,10 +185,10 @@ describe('Multi-node Integration Tests', () => {
     const alice = nodes[0].client!;
     
     const response = await alice.queryTrustBatch({
-      agent_ids: [
-        'ethereum:0x1234567890123456789012345678901234567890',
-        'aliexpress:1234567890',
-        'domain:example.com',
+      agents: [
+        { id_domain: 'ethereum', agent_id: '0x1234567890123456789012345678901234567890' },
+        { id_domain: 'aliexpress', agent_id: '1234567890' },
+        { id_domain: 'domain', agent_id: 'example.com' },
       ],
       max_depth: 1,
     });
@@ -193,13 +197,13 @@ describe('Multi-node Integration Tests', () => {
     expect(response.scores.length).toBeGreaterThanOrEqual(1);
     
     // Alice should have her own experience for Ethereum
-    const ethScore = response.scores.find(([id]) => id.includes('ethereum'));
+    const ethScore = response.scores.find(item => item.id_domain === 'ethereum');
     expect(ethScore).toBeDefined();
-    expect(ethScore![1].data_points).toBeGreaterThan(0);
+    expect(ethScore!.score.data_points).toBeGreaterThan(0);
     
     // Alice may not have scores for other agents yet (no federation setup)
-    const aliScore = response.scores.find(([id]) => id.includes('aliexpress'));
-    const domainScore = response.scores.find(([id]) => id.includes('domain'));
+    const aliScore = response.scores.find(item => item.id_domain === 'aliexpress');
+    const domainScore = response.scores.find(item => item.id_domain === 'domain');
     
     // These may be undefined if no data exists yet
     // Just checking batch query works properly

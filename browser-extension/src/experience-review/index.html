@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Experience - Repeer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            flex: 1;
+            padding: 1.5rem;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #b0b0b0;
+            font-size: 0.9rem;
+        }
+
+        .agent-info {
+            background: #2a2a2a;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #333;
+        }
+
+        .agent-info h2 {
+            font-size: 1.1rem;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-info .agent-id {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #9ca3af;
+            background: #1a1a1a;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            word-break: break-all;
+        }
+
+        .experience-preview {
+            background: #2a2a2a;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #333;
+        }
+
+        .experience-preview h2 {
+            font-size: 1.1rem;
+            color: #ffffff;
+            margin-bottom: 1rem;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .metric {
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: #b0b0b0;
+            margin-top: 0.25rem;
+        }
+
+        .roi-indicator {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .roi-positive {
+            background: #10b981;
+            color: #ffffff;
+        }
+
+        .roi-negative {
+            background: #ef4444;
+            color: #ffffff;
+        }
+
+        .roi-neutral {
+            background: #6b7280;
+            color: #ffffff;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #ffffff;
+        }
+
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #404040;
+            border-radius: 0.5rem;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: vertical;
+            min-height: 4rem;
+        }
+
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .form-group .help-text {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            margin-top: 0.25rem;
+        }
+
+        .adapter-data {
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #333;
+        }
+
+        .adapter-data h3 {
+            font-size: 1rem;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+        }
+
+        .adapter-data pre {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #9ca3af;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #374151;
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .error {
+            background: #ef4444;
+            color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Review Experience</h1>
+            <p>Please review and confirm this experience record</p>
+        </div>
+
+        <div id="error-message" class="error" style="display: none;"></div>
+
+        <div id="loading" class="loading">
+            Loading experience data...
+        </div>
+
+        <div id="review-form" style="display: none;">
+            <div class="agent-info">
+                <h2>Agent Information</h2>
+                <div class="agent-id" id="agent-display"></div>
+            </div>
+
+            <div class="experience-preview">
+                <h2>Experience Summary</h2>
+                <div class="metric-grid">
+                    <div class="metric">
+                        <div class="metric-value" id="roi-value">0%</div>
+                        <div class="metric-label">ROI</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="volume-value">$0</div>
+                        <div class="metric-label">Volume</div>
+                    </div>
+                </div>
+                <div id="roi-indicator" class="roi-indicator"></div>
+            </div>
+
+            <div id="adapter-data" class="adapter-data" style="display: none;">
+                <h3>Adapter Data</h3>
+                <pre id="adapter-data-content"></pre>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Add Notes (Optional)</label>
+                <textarea id="notes" placeholder="Add any additional notes about this experience..."></textarea>
+                <div class="help-text">Your notes will be stored with this experience for future reference.</div>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirm-btn">Confirm Experience</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
