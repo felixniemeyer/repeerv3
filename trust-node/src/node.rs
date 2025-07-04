@@ -11,7 +11,7 @@ use libp2p::{
     swarm::{NetworkBehaviour, SwarmEvent}, tcp, yamux, Multiaddr, PeerId, Swarm, SwarmBuilder
 };
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
@@ -90,13 +90,14 @@ pub struct TrustNode<S: Storage> {
     query_engine: QueryEngine<S>,
     command_rx: mpsc::Receiver<NodeCommand>,
     peers: HashMap<String, Peer>,
-    pending_requests: HashMap<request_response::OutboundRequestId, PendingRequest>,
+    pending_requests: HashMap<request_response::OutboundRequestId, Arc<Mutex<PendingRequest>>>,
 }
 
 struct PendingRequest {
     responses: Vec<TrustResponseInternal>,
     waiting_for: HashSet<PeerId>,
     response_channel: oneshot::Sender<Result<TrustResponse>>,
+    local_scores: HashMap<(String, String), Vec<(String, TrustScore, f64)>>, // Store original local+cached scores
 }
 
 impl<S: Storage + 'static> TrustNode<S> {
@@ -126,7 +127,7 @@ impl<S: Storage + 'static> TrustNode<S> {
                 let request_response = request_response::Behaviour::new(
                     [(TrustProtocol, request_response::ProtocolSupport::Full)],
                     request_response::Config::default()
-                        .with_request_timeout(Duration::from_secs(30)),
+                        .with_request_timeout(Duration::from_secs(5)), // Reduced for local testing
                 );
 
                 let identify = libp2p::identify::Behaviour::new(
@@ -187,8 +188,8 @@ impl<S: Storage + 'static> TrustNode<S> {
     }
 
     pub async fn run(mut self) -> Result<()> {
-        let mut discovery_interval = interval(TokioDuration::from_secs(300)); // 5 minutes
-        let mut peer_connection_interval = interval(TokioDuration::from_secs(60)); // 1 minute
+        let mut discovery_interval = interval(TokioDuration::from_secs(30)); // 30 seconds for faster test discovery
+        let mut peer_connection_interval = interval(TokioDuration::from_secs(5)); // 5 seconds for faster test connections
         
         loop {
             tokio::select! {
@@ -292,36 +293,50 @@ impl<S: Storage + 'static> TrustNode<S> {
     }
 
     async fn handle_trust_query(&mut self, query: TrustQuery, channel: ResponseChannel<TrustResponse>) -> Result<()> {
-        let mut scores = Vec::new();
-        let point_in_time = query.point_in_time.unwrap_or_else(Utc::now);
-        let forget_rate = query.forget_rate.unwrap_or(0.0);
-
-        for agent in &query.agents {
-            let score = self.query_engine
-                .calculate_trust_score(&agent.id_domain, &agent.agent_id, point_in_time, forget_rate)
-                .await?;
-            scores.push(crate::types::AgentScore::new(
-                agent.id_domain.clone(),
-                agent.agent_id.clone(),
-                score
-            ));
+        // Create a oneshot channel for the response
+        let (tx, rx) = oneshot::channel();
+        
+        // Process the query using the same logic as HTTP queries
+        // This ensures depth-based forwarding works for libp2p queries too
+        self.process_trust_query(query, tx).await?;
+        
+        // Wait for the response
+        match rx.await {
+            Ok(Ok(response)) => {
+                debug!("Sending trust response via libp2p: {} scores", response.scores.len());
+                // Send the response back through libp2p
+                self.swarm
+                    .behaviour_mut()
+                    .request_response
+                    .send_response(channel, response)
+                    .map_err(|_| anyhow::anyhow!("Failed to send response"))?;
+                debug!("Trust response sent successfully via libp2p");
+            }
+            Ok(Err(e)) => {
+                warn!("Trust query processing failed: {}", e);
+                // Send empty response on error
+                let empty_response = TrustResponse {
+                    scores: vec![],
+                    timestamp: Utc::now(),
+                };
+                self.swarm
+                    .behaviour_mut()
+                    .request_response
+                    .send_response(channel, empty_response)
+                    .map_err(|_| anyhow::anyhow!("Failed to send response"))?;
+            }
+            Err(_) => {
+                warn!("Trust query response channel closed");
+            }
         }
-
-        let response = TrustResponse {
-            scores,
-            timestamp: Utc::now(),
-        };
-
-        self.swarm
-            .behaviour_mut()
-            .request_response
-            .send_response(channel, response)
-            .map_err(|_| anyhow::anyhow!("Failed to send response"))?;
 
         Ok(())
     }
 
     async fn handle_trust_response(&mut self, request_id: request_response::OutboundRequestId, peer: PeerId, response: TrustResponse) -> Result<()> {
+        debug!("LIBP2P: Received response from peer {} with {} scores for request {:?}", 
+               peer, response.scores.len(), request_id);
+        
         // Cache the received trust scores from this peer
         for agent_score in &response.scores {
             let cached = crate::types::CachedTrustScore {
@@ -336,39 +351,110 @@ impl<S: Storage + 'static> TrustNode<S> {
             }
         }
 
-        if let Some(mut pending) = self.pending_requests.remove(&request_id) {
-            pending.responses.push(TrustResponseInternal {
-                response,
-                peer_id: peer.to_string(),
-            });
-            pending.waiting_for.remove(&peer);
+        if let Some(pending_arc) = self.pending_requests.get(&request_id).cloned() {
+            debug!("LIBP2P: Found pending request for {:?}", request_id);
+            let (should_remove, response_channel, final_response) = {
+                let mut pending = pending_arc.lock().unwrap();
+                pending.responses.push(TrustResponseInternal {
+                    response,
+                    peer_id: peer.to_string(),
+                });
+                pending.waiting_for.remove(&peer);
+                debug!("LIBP2P: Added response from {}, still waiting for {} peers", peer, pending.waiting_for.len());
 
-            if pending.waiting_for.is_empty() {
-                // All responses received, combine and send final result
-                let final_response = merge_responses(pending.responses);
-                let _ = pending.response_channel.send(Ok(final_response));
-            } else {
-                // Still waiting for more responses
-                self.pending_requests.insert(request_id, pending);
+                if pending.waiting_for.is_empty() {
+                    // All responses received, combine with local scores
+                    let peer_response = merge_responses(pending.responses.clone());
+                    debug!("LIBP2P: Peer responses contain {} scores", peer_response.scores.len());
+                    for score in &peer_response.scores {
+                        debug!("LIBP2P: Peer response score: {}:{} = ROI:{} vol:{} pts:{}", 
+                               score.id_domain, score.agent_id, 
+                               score.score.expected_pv_roi, score.score.total_volume, score.score.data_points);
+                    }
+                    
+                    // Merge local scores with peer responses
+                    let mut final_all_scores = pending.local_scores.clone();
+                    debug!("LIBP2P: Local scores contain {} agents", final_all_scores.len());
+                    
+                    // Add peer responses to the all_scores map
+                    for agent_score in peer_response.scores {
+                        let key = (agent_score.id_domain.clone(), agent_score.agent_id.clone());
+                        debug!("LIBP2P: Adding peer score for {}:{} with ROI {} and volume {}", 
+                               agent_score.id_domain, agent_score.agent_id, 
+                               agent_score.score.expected_pv_roi, agent_score.score.total_volume);
+                        final_all_scores
+                            .entry(key)
+                            .or_default()
+                            .push(("peers".to_string(), agent_score.score, 1.0)); // Peer responses get weight 1.0
+                    }
+                    
+                    // Generate final scores using the same logic as immediate response
+                    let final_scores: Vec<crate::types::AgentScore> = final_all_scores
+                        .into_iter()
+                        .map(|((id_domain, agent_id), scores)| {
+                            let combined = TrustScore::merge_multiple(
+                                scores.into_iter().map(|(_, score, quality)| (score, quality)).collect()
+                            );
+                            crate::types::AgentScore::new(id_domain, agent_id, combined)
+                        })
+                        .collect();
+                    
+                    let final_response = TrustResponse {
+                        scores: final_scores,
+                        timestamp: chrono::Utc::now(),
+                    };
+                    
+                    debug!("LIBP2P: All responses received, merged with local scores into {} final scores", final_response.scores.len());
+                    (true, Some(std::mem::replace(&mut pending.response_channel, 
+                        oneshot::channel().0)), // Dummy replacement
+                    Some(final_response))
+                } else {
+                    (false, None, None)
+                }
+            };
+
+            if should_remove {
+                // Remove all request IDs that point to this pending request
+                self.pending_requests.retain(|_, v| !Arc::ptr_eq(v, &pending_arc));
+                
+                if let (Some(channel), Some(response)) = (response_channel, final_response) {
+                    debug!("LIBP2P: Sending final merged response with {} scores to HTTP API", response.scores.len());
+                    let _ = channel.send(Ok(response));
+                }
             }
         }
         Ok(())
     }
 
     async fn handle_request_failure(&mut self, request_id: request_response::OutboundRequestId, peer: PeerId) -> Result<()> {
-        if let Some(mut pending) = self.pending_requests.remove(&request_id) {
-            pending.waiting_for.remove(&peer);
+        if let Some(pending_arc) = self.pending_requests.get(&request_id).cloned() {
+            let (should_remove, response_channel, result) = {
+                let mut pending = pending_arc.lock().unwrap();
+                pending.waiting_for.remove(&peer);
 
-            if pending.waiting_for.is_empty() {
-                // No more peers to wait for
-                if pending.responses.is_empty() {
-                    let _ = pending.response_channel.send(Err(anyhow::anyhow!("All requests failed")));
+                if pending.waiting_for.is_empty() {
+                    // No more peers to wait for
+                    let result = if pending.responses.is_empty() {
+                        Err(anyhow::anyhow!("All requests failed"))
+                    } else {
+                        let final_response = merge_responses(pending.responses.clone());
+                        Ok(final_response)
+                    };
+                    (true, Some(std::mem::replace(&mut pending.response_channel, 
+                        oneshot::channel().0)), // Dummy replacement
+                    Some(result))
                 } else {
-                    let final_response = merge_responses(pending.responses);
-                    let _ = pending.response_channel.send(Ok(final_response));
+                    (false, None, None)
                 }
-            } else {
-                self.pending_requests.insert(request_id, pending);
+            };
+
+            if should_remove {
+                // Remove all request IDs that point to this pending request
+                self.pending_requests.retain(|_, v| !Arc::ptr_eq(v, &pending_arc));
+                
+                if let (Some(channel), Some(result)) = (response_channel, result) {
+                    let _ = channel.send(result);
+                }
             }
         }
         Ok(())
@@ -494,29 +580,35 @@ impl<S: Storage + 'static> TrustNode<S> {
             }
         }
 
+        // Always check for cached scores from peers (even at depth 0)
+        for agent in &query.agents {
+            if let Ok(cached_scores) = self.storage.get_cached_scores(&agent.id_domain, &agent.agent_id).await {
+                debug!("Found {} cached scores for agent {}:{}", cached_scores.len(), agent.id_domain, agent.agent_id);
+                for cached in cached_scores {
+                    // Find the peer's recommender quality
+                    if let Some(peer) = self.peers.values().find(|p| p.peer_id == cached.from_peer) {
+                        // Apply age decay to cached scores
+                        let age_seconds = (Utc::now() - cached.cached_at).num_seconds() as f64;
+                        let age_factor = 1.0 / (1.0 + age_seconds / 86400.0); // Decay over days
+                        
+                        debug!("Using cached score from peer {} with age factor {}", cached.from_peer, age_factor);
+                        all_scores
+                            .entry((agent.id_domain.clone(), agent.agent_id.clone()))
+                            .or_default()
+                            .push((cached.from_peer, cached.score, peer.recommender_quality * age_factor));
+                    } else {
+                        debug!("Cached score from unknown peer: {}", cached.from_peer);
+                    }
+                }
+            } else {
+                debug!("No cached scores found for agent {}:{}", agent.id_domain, agent.agent_id);
+            }
+        }
+
         // Query peers if depth > 0
         if max_depth > 0 {
             let mut waiting_for = HashSet::new();
             let mut request_ids = Vec::new();
-
-            // First, check for cached scores from peers
-            for agent in &query.agents {
-                if let Ok(cached_scores) = self.storage.get_cached_scores(&agent.id_domain, &agent.agent_id).await {
-                    for cached in cached_scores {
-                        // Find the peer's recommender quality
-                        if let Some(peer) = self.peers.values().find(|p| p.peer_id == cached.from_peer) {
-                            // Apply age decay to cached scores
-                            let age_seconds = (Utc::now() - cached.cached_at).num_seconds() as f64;
-                            let age_factor = 1.0 / (1.0 + age_seconds / 86400.0); // Decay over days
-                            
-                            all_scores
-                                .entry((agent.id_domain.clone(), agent.agent_id.clone()))
-                                .or_default()
-                                .push((cached.from_peer, cached.score, peer.recommender_quality * age_factor));
-                        }
-                    }
-                }
-            }
 
             // Then try to get fresh scores from connected peers
             for peer in self.peers.values() {
@@ -524,6 +616,7 @@ impl<S: Storage + 'static> TrustNode<S> {
                 if let Ok(addr) = peer.peer_id.parse::<Multiaddr>() {
                     if let Some(libp2p::multiaddr::Protocol::P2p(peer_id_hash)) = addr.iter().last() {
                         if let Ok(peer_id) = PeerId::from_multihash(peer_id_hash.into()) {
+                            debug!("Checking peer {} ({}) - connected: {}", peer.name, peer_id, self.swarm.is_connected(&peer_id));
                             // Only query if peer is connected
                             if self.swarm.is_connected(&peer_id) {
                                 let peer_query = TrustQuery {
@@ -533,11 +626,14 @@ impl<S: Storage + 'static> TrustNode<S> {
                                     forget_rate: Some(forget_rate),
                                 };
 
+                                debug!("LIBP2P: Sending request to peer {} for {} agents with depth {}", 
+                                       peer_id, peer_query.agents.len(), peer_query.max_depth);
                                 let request_id = self.swarm
                                     .behaviour_mut()
                                     .request_response
                                     .send_request(&peer_id, peer_query);
 
+                                debug!("LIBP2P: Request sent with ID {:?}", request_id);
                                 waiting_for.insert(peer_id);
                                 request_ids.push(request_id);
                             }
@@ -547,16 +643,17 @@ impl<S: Storage + 'static> TrustNode<S> {
             }
 
             if !waiting_for.is_empty() {
-                // Store pending request
-                let pending = PendingRequest {
+                // Store pending request with local scores to merge later
+                let pending = Arc::new(Mutex::new(PendingRequest {
                     responses: Vec::new(),
                     waiting_for,
                     response_channel: response,
-                };
+                    local_scores: all_scores.clone(), // Store the local+cached scores
+                }));
                 
-                // Use the first request_id as the key
-                if let Some(request_id) = request_ids.first() {
-                    self.pending_requests.insert(*request_id, pending);
+                // Map all request_ids to the same pending request
+                for request_id in request_ids {
+                    self.pending_requests.insert(request_id, pending.clone());
                 }
                 
                 return Ok(());
@@ -582,34 +679,13 @@ impl<S: Storage + 'static> TrustNode<S> {
     }
 
     fn combine_scores_sync(&self, scores: Vec<(String, TrustScore, f64)>) -> TrustScore {
-        let mut weighted_roi_sum = 0.0;
-        let mut total_weight = 0.0;
-        let mut total_data_points = 0;
-
-        for (_, score, quality) in scores {
-            let adjusted_volume = score.total_volume * quality.abs();
-            if adjusted_volume > 0.0 {
-                let roi = if quality < 0.0 {
-                    2.0 - score.expected_pv_roi
-                } else {
-                    score.expected_pv_roi
-                };
-                
-                weighted_roi_sum += roi * adjusted_volume;
-                total_weight += adjusted_volume;
-                total_data_points += score.data_points;
-            }
-        }
-
-        if total_weight > 0.0 {
-            TrustScore {
-                expected_pv_roi: weighted_roi_sum / total_weight,
-                total_volume: total_weight,
-                data_points: total_data_points,
-            }
-        } else {
-            TrustScore::default()
-        }
+        // Convert to the format expected by TrustScore::merge_multiple
+        let score_weight_pairs: Vec<(TrustScore, f64)> = scores
+            .into_iter()
+            .map(|(_, score, quality)| (score, quality))
+            .collect();
+        
+        TrustScore::merge_multiple(score_weight_pairs)
     }
 
     async fn discover_peers(&mut self) -> Result<()> {

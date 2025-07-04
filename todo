@@ -1,3 +1,6 @@
+# 04.07. 
+- Create a test where after shutting down Bob, Alice uses a cached value
+
 # 03.07. 
 - D(fixed compilation error in node.rs with to_legacy() call): trust-node does not build, fix that
 

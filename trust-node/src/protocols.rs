@@ -1,4 +1,4 @@
-use crate::types::{TrustQuery, TrustResponse, TrustScore};
+use crate::types::{TrustQuery, TrustResponse};
 use async_trait::async_trait;
 use futures::io::{AsyncRead, AsyncWrite};
 use libp2p::request_response::Codec;
@@ -28,7 +28,9 @@ impl Codec for TrustCodec {
         T: AsyncRead + Unpin + Send,
     {
         let vec = read_length_prefixed(io, 1_000_000).await?;
-        serde_json::from_slice(&vec).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        let request: Self::Request = serde_json::from_slice(&vec).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        tracing::debug!("LIBP2P: Decoded incoming request: {:?}", request);
+        Ok(request)
     }
 
     async fn read_response<T>(&mut self, _: &TrustProtocol, io: &mut T) -> io::Result<Self::Response>
@@ -36,13 +38,16 @@ impl Codec for TrustCodec {
         T: AsyncRead + Unpin + Send,
     {
         let vec = read_length_prefixed(io, 10_000_000).await?;
-        serde_json::from_slice(&vec).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        let response: Self::Response = serde_json::from_slice(&vec).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        tracing::debug!("LIBP2P: Decoded incoming response: {} scores", response.scores.len());
+        Ok(response)
     }
 
     async fn write_request<T>(&mut self, _: &TrustProtocol, io: &mut T, req: Self::Request) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
+        tracing::debug!("LIBP2P: Encoding outgoing request: {:?}", req);
         let data = serde_json::to_vec(&req).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         write_length_prefixed(io, data).await
     }
@@ -51,6 +56,7 @@ impl Codec for TrustCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
+        tracing::debug!("LIBP2P: Encoding outgoing response: {} scores", res.scores.len());
         let data = serde_json::to_vec(&res).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         write_length_prefixed(io, data).await
     }
@@ -103,38 +109,34 @@ pub struct TrustResponseInternal {
 pub fn merge_responses(responses: Vec<TrustResponseInternal>) -> TrustResponse {
     use chrono::Utc;
     use std::collections::HashMap;
+    use crate::types::TrustScore;
     
-    let mut merged_scores: HashMap<(String, String), Vec<(String, TrustScore)>> = HashMap::new();
+    tracing::debug!("merge_responses: Processing {} responses", responses.len());
+    
+    let mut merged_scores: HashMap<(String, String), Vec<TrustScore>> = HashMap::new();
     
     for resp in responses {
         for agent_score in resp.response.scores {
             merged_scores
                 .entry((agent_score.id_domain.clone(), agent_score.agent_id.clone()))
                 .or_default()
-                .push((resp.peer_id.clone(), agent_score.score));
+                .push(agent_score.score);
         }
     }
     
     let final_scores: Vec<crate::types::AgentScore> = merged_scores
         .into_iter()
         .map(|((id_domain, agent_id), scores)| {
-            let total_weight: f64 = scores.iter().map(|(_, s)| s.total_volume).sum();
-            let weighted_roi: f64 = scores
-                .iter()
-                .map(|(_, s)| s.expected_pv_roi * s.total_volume)
-                .sum::<f64>()
-                / total_weight.max(1.0);
-            let data_points: usize = scores.iter().map(|(_, s)| s.data_points).sum();
+            // Use the new TrustScore merge functionality
+            // All peer responses get equal weight (1.0) since this is just combining responses
+            let score_weight_pairs: Vec<(TrustScore, f64)> = scores
+                .into_iter()
+                .map(|score| (score, 1.0))
+                .collect();
             
-            crate::types::AgentScore::new(
-                id_domain,
-                agent_id,
-                TrustScore {
-                    expected_pv_roi: weighted_roi,
-                    total_volume: total_weight,
-                    data_points,
-                }
-            )
+            let merged_score = TrustScore::merge_multiple(score_weight_pairs);
+            
+            crate::types::AgentScore::new(id_domain, agent_id, merged_score)
         })
         .collect();
     

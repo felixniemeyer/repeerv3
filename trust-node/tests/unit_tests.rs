@@ -1,8 +1,7 @@
-use tempfile::TempDir;
 use trust_node::{
     query_engine::QueryEngine,
     storage::{Storage, SqliteStorage},
-    types::{TrustExperience, TrustQuery, Peer},
+    types::{TrustExperience, Peer},
 };
 use uuid::Uuid;
 use chrono::Utc;

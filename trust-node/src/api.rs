@@ -148,13 +148,16 @@ async fn query_trust(
         query, 
         response 
     }).await?;
-
-    response
+    
+    tracing::debug!("API: Received response with {} scores for single trust query", response.scores.len());
+    let trust_score = response
         .scores
         .into_iter()
         .find(|agent_score| agent_score.id_domain == id_domain && agent_score.agent_id == agent_id)
-        .map(|agent_score| Json(agent_score.score))
-        .ok_or(StatusCode::NOT_FOUND)
+        .map(|agent_score| agent_score.score)
+        .unwrap_or_else(|| TrustScore::default()); // Return default score (PV-ROI=1, volume=0) instead of 404
+    
+    Ok(Json(trust_score))
 }
 
 async fn query_trust_batch(

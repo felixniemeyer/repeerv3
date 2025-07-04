@@ -551,7 +551,7 @@ const testConnection = async () => {
   
   // Clear previous node state when switching nodes
   peers.value = []
-  peerInfo.value = null
+  peerInfo.value = { id: '', multiaddr: '' }
   currentScore.value = null
   recentScores.value = []
   
@@ -564,6 +564,10 @@ const testConnection = async () => {
       // Save successful connection
       await chrome.storage.sync.set({ settings: settings.value })
       connectionState.value = 'connected'
+      
+      // Reload data from the new node
+      await loadPeers()
+      await loadPeerInfo()
     } else {
       connectionState.value = 'failed'
     }

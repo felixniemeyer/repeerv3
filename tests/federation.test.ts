@@ -75,10 +75,10 @@ describe('Federation and Trust Propagation Tests', () => {
       node.client = new TrustClient(`http://localhost:${node.apiPort}`);
       
       // Wait for the node to start and capture peer ID
-      await delay(3000);
+      await delay(1500);
       
-      // Check if node is healthy
-      let retries = 10;
+      // Check if node is healthy with faster polling
+      let retries = 15;
       while (retries > 0) {
         try {
           const healthy = await node.client.health();
@@ -88,7 +88,7 @@ describe('Federation and Trust Propagation Tests', () => {
           }
         } catch (error) {
           console.log(`Waiting for node ${node.name} to start... (${retries} retries left)`);
-          await delay(1000);
+          await delay(200); // Faster polling
           retries--;
         }
       }
@@ -99,7 +99,7 @@ describe('Federation and Trust Propagation Tests', () => {
     }
     
     // Give nodes a bit more time to fully initialize
-    await delay(2000);
+    await delay(500);
   }, 60000);
 
   afterAll(async () => {
@@ -172,6 +172,46 @@ describe('Federation and Trust Propagation Tests', () => {
     const charlie = nodes[2].client!;
     const dave = nodes[3].client!;
     
+    // Ensure peer connections are established
+    // Bob connects to Alice
+    const aliceMultiaddr = `/ip4/127.0.0.1/tcp/${nodes[0].p2pPort}/p2p/${nodes[0].peerId}`;
+    try {
+      await bob.addPeer({
+        peer_id: aliceMultiaddr,
+        name: 'Alice',
+        recommender_quality: 0.9,
+      });
+    } catch (error: any) {
+      // Ignore 409 conflicts (peer already exists)
+      if (error.response?.status !== 409) {
+        throw error;
+      }
+    }
+    
+    // Charlie connects to Bob
+    const bobMultiaddr = `/ip4/127.0.0.1/tcp/${nodes[1].p2pPort}/p2p/${nodes[1].peerId}`;
+    try {
+      await charlie.addPeer({
+        peer_id: bobMultiaddr,
+        name: 'Bob',
+        recommender_quality: 0.8,
+      });
+    } catch (error: any) {
+      if (error.response?.status !== 409) throw error;
+    }
+    
+    // Dave connects to Charlie
+    const charlieMultiaddr = `/ip4/127.0.0.1/tcp/${nodes[2].p2pPort}/p2p/${nodes[2].peerId}`;
+    try {
+      await dave.addPeer({
+        peer_id: charlieMultiaddr,
+        name: 'Charlie',
+        recommender_quality: 0.7,
+      });
+    } catch (error: any) {
+      if (error.response?.status !== 409) throw error;
+    }
+    
     // Alice adds a positive experience for an Ethereum address
     const ethAddress = '0xdeadbeef1234567890123456789012345678dead';
     await alice.addExperience({
@@ -194,11 +234,18 @@ describe('Federation and Trust Propagation Tests', () => {
     
     // Bob should be able to query through Alice (depth 1)
     const bobScore = await bob.queryTrust('ethereum', ethAddress, { max_depth: 1 });
+    console.log('Bob score:', bobScore);
     expect(bobScore.expected_pv_roi).toBeGreaterThan(1.0);
     expect(bobScore.data_points).toBe(1);
     
     // Charlie should be able to query through Bob->Alice (depth 2)
     const charlieScore = await charlie.queryTrust('ethereum', ethAddress, { max_depth: 2 });
+    console.log('Charlie score:', charlieScore);
+    
+    // Check Charlie's peers
+    const charliePeers = await charlie.getPeers();
+    console.log('Charlie peers:', charliePeers.map(p => p.name));
+    
     expect(charlieScore.expected_pv_roi).toBeGreaterThan(1.0);
     expect(charlieScore.data_points).toBe(1);
     
@@ -207,15 +254,12 @@ describe('Federation and Trust Propagation Tests', () => {
     expect(daveScore.expected_pv_roi).toBeGreaterThan(1.0);
     expect(daveScore.data_points).toBe(1);
     
-    // With depth 1, Dave shouldn't see Alice's data (should return 404)
-    try {
-      const daveShallowScore = await dave.queryTrust('ethereum', ethAddress, { max_depth: 1 });
-      // If we get here, the node returned a score - it should have 0 data points
-      expect(daveShallowScore.data_points).toBe(0);
-    } catch (error: any) {
-      // 404 error is expected when no data is found
-      expect(error.response?.status).toBe(404);
-    }
+    // With depth 1, Dave shouldn't see Alice's data (should return default score)
+    const daveShallowScore = await dave.queryTrust('ethereum', ethAddress, { max_depth: 1 });
+    // Should return default trust score: PV-ROI=1, volume=0, data_points=0
+    expect(daveShallowScore.expected_pv_roi).toBe(1.0);
+    expect(daveShallowScore.total_volume).toBe(0.0);
+    expect(daveShallowScore.data_points).toBe(0);
   });
 
   test('Multiple experiences from different peers aggregate correctly', async () => {
@@ -224,6 +268,38 @@ describe('Federation and Trust Propagation Tests', () => {
     const charlie = nodes[2].client!;
     
     const domainAgent = 'trustworthy.com';
+    
+    // Check Bob's peers at start of test
+    let initialBobPeers = await bob.getPeers();
+    console.log('Bob initial peers:', initialBobPeers.map(p => ({ name: p.name, peer_id: p.peer_id })));
+    
+    // Bob needs to be connected to both Alice and Charlie to aggregate their experiences
+    // Connect Bob to Alice
+    const aliceMultiaddr = `/ip4/127.0.0.1/tcp/${nodes[0].p2pPort}/p2p/${nodes[0].peerId}`;
+    try {
+      await bob.addPeer({
+        peer_id: aliceMultiaddr,
+        name: 'Alice',
+        recommender_quality: 0.9,
+      });
+    } catch (error: any) {
+      if (error.response?.status !== 409) throw error;
+    }
+    
+    // Connect Bob to Charlie as well
+    const charlieMultiaddr = `/ip4/127.0.0.1/tcp/${nodes[2].p2pPort}/p2p/${nodes[2].peerId}`;
+    try {
+      await bob.addPeer({
+        peer_id: charlieMultiaddr,
+        name: 'Charlie',
+        recommender_quality: 0.8,
+      });
+    } catch (error: any) {
+      if (error.response?.status !== 409) throw error;
+    }
+    
+    // Give time for connection to establish
+    await delay(2000);
     
     // Alice has a positive experience
     await alice.addExperience({
@@ -245,8 +321,18 @@ describe('Federation and Trust Propagation Tests', () => {
       discount_rate: 0.05,
     });
     
-    // Give time for experiences to propagate
-    await delay(3000);
+    // Give time for experiences to be stored
+    await delay(2000);
+    
+    // Check Bob's peers before querying
+    const bobPeers = await bob.getPeers();
+    console.log('Bob peers:', bobPeers.map(p => ({ name: p.name, peer_id: p.peer_id })));
+    
+    // Check what experiences Alice and Charlie have
+    const aliceExperiences = await alice.getExperiences('domain', domainAgent);
+    const charlieExperiences = await charlie.getExperiences('domain', domainAgent);
+    console.log('Alice experiences:', aliceExperiences.length);
+    console.log('Charlie experiences:', charlieExperiences.length);
     
     // Bob queries with depth 2 to see both experiences
     const bobAggregatedScore = await bob.queryTrust('domain', domainAgent, { max_depth: 2 });
@@ -265,6 +351,24 @@ describe('Federation and Trust Propagation Tests', () => {
   test('Recommender quality affects trust propagation', async () => {
     const alice = nodes[0].client!;
     const bob = nodes[1].client!;
+    
+    // Ensure Bob is connected to Alice for this test
+    const aliceMultiaddr = `/ip4/127.0.0.1/tcp/${nodes[0].p2pPort}/p2p/${nodes[0].peerId}`;
+    try {
+      await bob.addPeer({
+        peer_id: aliceMultiaddr,
+        name: 'Alice',
+        recommender_quality: 0.9,
+      });
+    } catch (error: any) {
+      // Ignore 409 conflicts (peer already exists)
+      if (error.response?.status !== 409) {
+        throw error;
+      }
+    }
+    
+    // Give time for connection to establish
+    await delay(2000);
     
     const riskyAgent = 'risky-seller';
     
@@ -351,14 +455,12 @@ describe('Federation and Trust Propagation Tests', () => {
     charlie.process!.kill('SIGTERM');
     await delay(3000);
     
-    // Dave should no longer see Charlie's data with depth 1
-    try {
-      const scoreAfterDisconnect = await dave.queryTrust('domain', 'charlie-special.com', { max_depth: 1 });
-      expect(scoreAfterDisconnect.data_points).toBe(0);
-    } catch (error: any) {
-      // 404 error is expected when peer is offline and no cached data
-      expect(error.response?.status).toBe(404);
-      console.log('Query failed after peer disconnect (expected): 404');
-    }
+    // Dave should no longer see Charlie's data with depth 1 (should return default score)
+    const scoreAfterDisconnect = await dave.queryTrust('domain', 'charlie-special.com', { max_depth: 1 });
+    // Should return default trust score when peer is offline and no cached data
+    expect(scoreAfterDisconnect.expected_pv_roi).toBe(1.0);
+    expect(scoreAfterDisconnect.total_volume).toBe(0.0);
+    expect(scoreAfterDisconnect.data_points).toBe(0);
+    console.log('Query returned default score after peer disconnect (expected)');
   });
 });

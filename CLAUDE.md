@@ -44,3 +44,6 @@ Always use a dark theme.
 
 # test
 always run tests, if something breaks, analyze the code and the test and fix the situation
+
+# ask for clarification
+whenever hitting a point where your implementation would make a decision about the architecture or logic of the application, present me your considerations and let me steer. 

@@ -21,6 +21,91 @@ pub struct TrustScore {
     pub data_points: usize,
 }
 
+impl TrustScore {
+    /// Create a new trust score
+    pub fn new(expected_pv_roi: f64, total_volume: f64, data_points: usize) -> Self {
+        Self {
+            expected_pv_roi,
+            total_volume,
+            data_points,
+        }
+    }
+
+    /// Merge this trust score with another, using volume-weighted averaging
+    /// 
+    /// # Arguments
+    /// * `other` - The other trust score to merge with
+    /// * `other_weight` - Quality multiplier for the other score (e.g., recommender quality)
+    /// 
+    /// # Returns
+    /// A new TrustScore representing the merged result
+    pub fn merge_with(&self, other: &TrustScore, other_weight: f64) -> TrustScore {
+        let self_adjusted_volume = self.total_volume;
+        let other_adjusted_volume = other.total_volume * other_weight.abs();
+
+        if self_adjusted_volume == 0.0 && other_adjusted_volume == 0.0 {
+            return TrustScore::default();
+        }
+
+        let total_weight = self_adjusted_volume + other_adjusted_volume;
+        
+        // Handle negative recommender quality by inverting ROI (2.0 - roi)
+        let other_roi = if other_weight < 0.0 {
+            2.0 - other.expected_pv_roi
+        } else {
+            other.expected_pv_roi
+        };
+
+        let weighted_roi = if total_weight > 0.0 {
+            (self.expected_pv_roi * self_adjusted_volume + other_roi * other_adjusted_volume) / total_weight
+        } else {
+            1.0 // Default neutral ROI
+        };
+
+        TrustScore {
+            expected_pv_roi: weighted_roi,
+            total_volume: total_weight,
+            data_points: self.data_points + other.data_points,
+        }
+    }
+
+    /// Merge multiple trust scores with their respective weights
+    /// 
+    /// # Arguments
+    /// * `scores` - Vector of (trust_score, weight) tuples
+    /// 
+    /// # Returns
+    /// A new TrustScore representing the merged result
+    pub fn merge_multiple(scores: Vec<(TrustScore, f64)>) -> TrustScore {
+        if scores.is_empty() {
+            return TrustScore::default();
+        }
+
+        // Start with the first score instead of default to avoid merging with empty
+        let mut scores_iter = scores.into_iter();
+        let (mut result, first_weight) = scores_iter.next().unwrap();
+        
+        // Apply weight to the first score
+        if first_weight != 1.0 {
+            result.total_volume *= first_weight.abs();
+            if first_weight < 0.0 {
+                result.expected_pv_roi = 2.0 - result.expected_pv_roi;
+            }
+        }
+        
+        // Merge remaining scores
+        for (score, weight) in scores_iter {
+            result = result.merge_with(&score, weight);
+        }
+        result
+    }
+
+    /// Check if this trust score has any data
+    pub fn has_data(&self) -> bool {
+        self.data_points > 0 && self.total_volume > 0.0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Peer {
     pub peer_id: String,

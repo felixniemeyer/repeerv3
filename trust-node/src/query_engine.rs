@@ -17,6 +17,7 @@ pub struct QueryEngine<S: Storage> {
     cache_ttl_seconds: i64,
 }
 
+#[allow(dead_code)] // Public API methods for future extensibility
 impl<S: Storage> QueryEngine<S> {
     pub fn new(storage: Arc<S>) -> Self {
         Self { 
@@ -88,6 +89,7 @@ impl<S: Storage> QueryEngine<S> {
         
         debug!("Cache miss for agent {}:{}, calculating...", id_domain, agent_id);
         let experiences = self.storage.get_experiences(id_domain, agent_id).await?;
+        debug!("Found {} experiences for agent {}:{}", experiences.len(), id_domain, agent_id);
         
         if experiences.is_empty() {
             let default_score = TrustScore::default();
@@ -173,6 +175,8 @@ impl<S: Storage> QueryEngine<S> {
 
         for exp in experiences {
             let aged_volume = exp.aged_volume(point_in_time, forget_rate);
+            debug!("Experience ROI: {}, invested_volume: {}, aged_volume: {}, forget_rate: {}", 
+                   exp.pv_roi, exp.invested_volume, aged_volume, forget_rate);
             if aged_volume > 0.0 {
                 weighted_sum += exp.pv_roi * aged_volume;
                 total_weight += aged_volume;

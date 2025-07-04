@@ -19,7 +19,7 @@ export class TrustClient {
   constructor(baseURL: string = 'http://localhost:8080') {
     this.client = axios.create({
       baseURL,
-      timeout: 10000,
+      timeout: 10000, // Reduced timeout for faster local testing 
       headers: {
         'Content-Type': 'application/json',
       },

@@ -52,10 +52,10 @@ describe('Multi-node Integration Tests', () => {
       node.client = new TrustClient(`http://localhost:${node.apiPort}`);
       
       // Wait a bit for the node to start
-      await delay(2000);
+      await delay(1000);
       
-      // Check if node is healthy
-      let retries = 5;
+      // Check if node is healthy with faster polling
+      let retries = 10;
       while (retries > 0) {
         try {
           const healthy = await node.client.health();
@@ -65,7 +65,7 @@ describe('Multi-node Integration Tests', () => {
           }
         } catch (error) {
           console.log(`Waiting for node ${node.name} to start... (${retries} retries left)`);
-          await delay(1000);
+          await delay(200); // Faster polling interval
           retries--;
         }
       }
@@ -124,7 +124,26 @@ describe('Multi-node Integration Tests', () => {
   test('Alice can query her own experience', async () => {
     const alice = nodes[0].client!;
     
+    // Ensure Alice has an experience first (test isolation)
+    await alice.addExperience({
+      id_domain: 'ethereum',
+      agent_id: '0x1234567890123456789012345678901234567890',
+      investment: 1000,
+      return_value: 1100,
+      timeframe_days: 30,
+      discount_rate: 0.05,
+      notes: 'Good DeFi protocol',
+    });
+    
+    // Debug: Check if Alice's experience was actually stored
+    const experiences = await alice.getExperiences('ethereum', '0x1234567890123456789012345678901234567890');
+    console.log('Alice experiences found:', experiences.length);
+    if (experiences.length > 0) {
+      console.log('First experience:', experiences[0]);
+    }
+    
     const score = await alice.queryTrust('ethereum', '0x1234567890123456789012345678901234567890');
+    console.log('Alice trust score:', score);
     
     expect(score.expected_pv_roi).toBeGreaterThan(1.0);
     expect(score.total_volume).toBeGreaterThanOrEqual(1000); // May have multiple experiences from other tests
@@ -183,6 +202,17 @@ describe('Multi-node Integration Tests', () => {
 
   test('Batch trust query works', async () => {
     const alice = nodes[0].client!;
+    
+    // Ensure Alice has data for batch test (test isolation)
+    await alice.addExperience({
+      id_domain: 'ethereum',
+      agent_id: '0x1234567890123456789012345678901234567890',
+      investment: 1000,
+      return_value: 1100,
+      timeframe_days: 30,
+      discount_rate: 0.05,
+      notes: 'Good DeFi protocol',
+    });
     
     const response = await alice.queryTrustBatch({
       agents: [
